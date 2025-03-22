@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+    <title>KG</title>
+    <link rel="stylesheet" href="page1.css">
+</head>
+<body>
+    <div class="wrapper">
+        <!-- Ліва частина: Координатна площина -->
+        <div class="left-panel">
+            <h2>Координатна площина</h2>
+            <canvas id="coordinateSystem"></canvas>
+        </div>
+
+        <!-- Права частина: Меню -->
+        <div class="right-panel">
+            <h3>Меню</h3>
+            <div style="display: flex; justify-content: space-between;">
+                <!-- Ліва точка -->
+                <div>
+                    <label>Точка 1 (x, y):</label><br>
+                    <input type="number" id="x1" placeholder="X1"> 
+                    <input type="number" id="y1" placeholder="Y1">
+                </div>
+
+                <!-- Права точка -->
+                <div>
+                    <label>Точка 2 (x, y):</label><br>
+                    <input type="number" id="x2" placeholder="X2"> 
+                    <input type="number" id="y2" placeholder="Y2">
+                </div>
+            </div>
+
+            <div style="margin: 10px 0;">
+                <input type="color" id="lineColor" value="#000000">
+            </div>
+            <br>
+
+            <div class="create-button">
+                <button id="drawButton">Побудувати</button>    
+            </div>
+            <br>
+
+            <div class="circle-button">
+                <button id="circleButton">Вписати коло</button>    
+            </div>
+            <br>
+
+            <div class="delete-button">
+                <button id="deleteButton">Очистити площину</button>    
+            </div>
+        </div>
+       
+    </div>
+    
+    <script src="./dist/script.js"></script>
+</body>
+</html>

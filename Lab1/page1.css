@@ -1,0 +1,88 @@
+* {
+    margin: 0;
+    padding: 0; 
+    box-sizing: border-box;
+}
+
+.wrapper {
+    display: flex; 
+}
+
+.left-panel {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start; 
+    align-items: center;
+    margin-left: 150px;
+    margin-top: 30px;
+}
+
+h2 { 
+    margin-bottom: px; 
+}
+
+canvas {
+    border: 3px solid #000000;
+    height: 500px;
+    width: 500px;
+    display: block;
+}
+
+.right-panel {
+    margin: 55px 150px 0 100px;
+    flex: 1; 
+    padding: 20px; 
+    border: 2px solid #ccc;
+    border-radius: 10px;
+    text-align: center;
+}
+
+.right-panel input {
+    width: 50px;
+}
+.create-button {
+    width: 100%;
+}
+
+.create-button button {
+    width: 100%;
+    background-color: #4CAF50; 
+    color: rgb(255, 255, 255); 
+    border: 2px solid #2d8700; 
+    border-radius: 12px; 
+    padding: 8px 0; 
+    font-size: 18px; 
+    cursor: pointer; 
+    transition: background-color 0.3s ease;
+}
+.circle-button {
+    width: 100%;
+}
+
+.circle-button button {
+    width: 100%;
+    background-color: #b6df00; 
+    color: rgb(255, 255, 255); 
+    border: 2px solid #9da800; 
+    border-radius: 12px; 
+    padding: 8px 0; 
+    font-size: 18px; 
+    cursor: pointer; 
+    transition: background-color 0.3s ease;
+}
+
+.delete-button {
+    width: 100%;
+}
+
+.delete-button button {
+    width: 100%;
+    background-color: #fd0000; 
+    color: rgb(255, 255, 255); 
+    border: 2px solid #9b0000; 
+    border-radius: 12px; 
+    padding: 8px 0; 
+    font-size: 18px; 
+    cursor: pointer; 
+    transition: background-color 0.3s ease;
+}
