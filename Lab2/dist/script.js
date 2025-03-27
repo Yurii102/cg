@@ -1,7 +1,8 @@
 "use strict";
+// ==================== CANVAS SETUP AND GLOBAL VARIABLES ====================
 const canvas = document.getElementById('coordinateSystem');
 const ctx = canvas.getContext('2d');
-const displaySize = 550;
+const displaySize = 650;
 const gridSize = 25;
 const scaleFactor = window.devicePixelRatio || 1;
 canvas.width = displaySize * scaleFactor;
@@ -9,26 +10,121 @@ canvas.height = displaySize * scaleFactor;
 canvas.style.width = displaySize + "px";
 canvas.style.height = displaySize + "px";
 ctx.scale(scaleFactor, scaleFactor);
+// Add input variable declarations at the top with other globals
+const numPointsInput = document.getElementById('numPoints');
+const rangeStartInput = document.getElementById('rangeStart');
+const rangeEndInput = document.getElementById('rangeEnd');
 let isDragging = false;
 let offsetX = 0;
 let offsetY = 0;
 let startX = 0;
 let startY = 0;
-canvas.addEventListener('mousedown', (e) => {
-    isDragging = true;
-    startX = e.clientX - offsetX;
-    startY = e.clientY - offsetY;
-});
-canvas.addEventListener('mousemove', (e) => {
-    if (!isDragging)
-        return;
-    offsetX = e.clientX - startX;
-    offsetY = e.clientY - startY;
+let isMovingPoint = false;
+let selectedPointIndex = -1;
+let wasCanvasMoved = false;
+let editingPointIndex = -1;
+let pointToDelete = -1;
+let bezierCurvePoints = [];
+let bezierMatrix = [];
+let showControlPolygon = true;
+let points = [];
+// ==================== POINT OPERATIONS ====================
+function getPointAtPosition(canvasX, canvasY) {
+    for (let i = 0; i < points.length; i++) {
+        const point = points[i];
+        const pointCanvasX = displaySize / 2 + offsetX + point.x * gridSize;
+        const pointCanvasY = displaySize / 2 + offsetY - point.y * gridSize;
+        const distance = Math.sqrt(Math.pow((canvasX - pointCanvasX), 2) + Math.pow((canvasY - pointCanvasY), 2));
+        if (distance <= point.radius) {
+            return i;
+        }
+    }
+    return -1;
+}
+function createPointFromCoordinates(x, y) {
+    points.push({
+        x: parseFloat(x.toFixed(2)),
+        y: parseFloat(y.toFixed(2)),
+        radius: 10,
+        selected: false
+    });
+    console.log(`Додано точку в координатах (${x.toFixed(2)}, ${y.toFixed(2)})`);
+    updateBezierCurve();
     drawCoordinateSystem();
-});
-canvas.addEventListener('mouseup', () => {
-    isDragging = false;
-});
+    updatePointsList();
+}
+function deletePoint(index) {
+    if (index >= 0 && index < points.length) {
+        const point = points[index];
+        points.splice(index, 1);
+        console.log(`Видалено точку ${index}: (${point.x}, ${point.y})`);
+        updateBezierCurve();
+        drawCoordinateSystem();
+        updatePointsList();
+    }
+}
+function updatePointsList() {
+    const pointsList = document.getElementById('pointsContainer');
+    if (!pointsList)
+        return;
+    pointsList.innerHTML = '';
+    points.forEach((point, index) => {
+        const listItem = document.createElement('li');
+        listItem.textContent = `Точка ${index}: (${point.x}, ${point.y})`;
+        listItem.style.cursor = 'pointer';
+        listItem.addEventListener('click', () => openEditModal(index));
+        pointsList.appendChild(listItem);
+    });
+}
+function openEditModal(index) {
+    const modal = document.getElementById('editForm');
+    const closeBtn = modal.querySelector('.close');
+    const saveBtn = document.getElementById('savePointBtn');
+    const editX = document.getElementById('editX');
+    const editY = document.getElementById('editY');
+    const overlay = document.querySelector(".modal-overlay");
+    overlay.style.display = "block";
+    if (index >= 0 && index < points.length) {
+        editingPointIndex = index;
+        editX.value = points[index].x.toString();
+        editY.value = points[index].y.toString();
+        modal.style.display = 'block';
+        closeBtn.onclick = function () {
+            overlay.style.display = "";
+            modal.style.display = 'none';
+        };
+        window.onclick = function (event) {
+            if (event.target === modal) {
+                overlay.style.display = "none";
+                modal.style.display = 'none';
+            }
+        };
+        saveBtn.onclick = function () {
+            savePointChanges();
+            overlay.style.display = "none";
+            modal.style.display = 'none';
+        };
+    }
+}
+function savePointChanges() {
+    const modal = document.getElementById('editForm');
+    const editX = document.getElementById('editX');
+    const editY = document.getElementById('editY');
+    if (editingPointIndex >= 0 && editingPointIndex < points.length) {
+        const newX = parseFloat(editX.value);
+        const newY = parseFloat(editY.value);
+        if (!isNaN(newX) && !isNaN(newY)) {
+            points[editingPointIndex].x = parseFloat(newX.toFixed(2));
+            points[editingPointIndex].y = parseFloat(newY.toFixed(2));
+            console.log(`Точку ${editingPointIndex} змінено на координати (${points[editingPointIndex].x}, ${points[editingPointIndex].y})`);
+            modal.style.display = 'none';
+            updateBezierCurve();
+            drawCoordinateSystem();
+            updatePointsList();
+        }
+    }
+}
+// ==================== DRAWING FUNCTIONS ====================
 function drawCoordinateSystem() {
     ctx.clearRect(0, 0, displaySize, displaySize);
     ctx.strokeStyle = '#000';
@@ -45,6 +141,10 @@ function drawCoordinateSystem() {
     ctx.stroke();
     drawGrid();
     drawNumber();
+    if (showControlPolygon)
+        drawControlPolygon();
+    drawBezierCurve();
+    drawPoints();
 }
 // Малювання сітки
 function drawGrid() {
@@ -85,13 +185,481 @@ function drawNumber() {
         ctx.fillText(num.toString(), centerX + 10, canvasY);
     }
 }
-const drawButton = document.getElementById('drawButton');
-const circleButton = document.getElementById('circleButton');
-const deleteButton = document.getElementById('deleteButton');
+function drawPoints() {
+    points.forEach((point, index) => {
+        const canvasX = displaySize / 2 + offsetX + point.x * gridSize;
+        const canvasY = displaySize / 2 + offsetY - point.y * gridSize;
+        ctx.fillStyle = point.selected ? 'blue' : 'red';
+        ctx.beginPath();
+        ctx.arc(canvasX, canvasY, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = 'black';
+        ctx.font = '10px Arial';
+        ctx.fillText(`${index}: (${point.x}, ${point.y})`, canvasX + 8, canvasY - 8);
+    });
+}
+function drawBezierCurve() {
+    if (bezierCurvePoints.length === 0)
+        return;
+    const curveColorInput = document.getElementById('colorCurve');
+    const curveColor = curveColorInput ? curveColorInput.value : '#000000';
+    ctx.beginPath();
+    ctx.strokeStyle = curveColor;
+    ctx.lineWidth = 2;
+    const startPoint = bezierCurvePoints[0];
+    ctx.moveTo(displaySize / 2 + offsetX + startPoint.x * gridSize, displaySize / 2 + offsetY - startPoint.y * gridSize);
+    for (let i = 1; i < bezierCurvePoints.length; i++) {
+        const point = bezierCurvePoints[i];
+        ctx.lineTo(displaySize / 2 + offsetX + point.x * gridSize, displaySize / 2 + offsetY - point.y * gridSize);
+    }
+    ctx.stroke();
+}
+function drawControlPolygon() {
+    if (points.length < 2)
+        return;
+    const segmentsColorInput = document.getElementById('colorSegments');
+    const segmentsColor = segmentsColorInput ? segmentsColorInput.value : '#ff0000';
+    const otherSegmentsColorInput = document.getElementById('colorOtherSegments');
+    const otherSegmentsColor = otherSegmentsColorInput ? otherSegmentsColorInput.value : '#0000ff';
+    for (let i = 0; i < points.length - 1; i++) {
+        const isTangent = (i === 0 || i === points.length - 2);
+        ctx.beginPath();
+        ctx.strokeStyle = isTangent ? segmentsColor : otherSegmentsColor;
+        ctx.lineWidth = 1.5;
+        ctx.moveTo(displaySize / 2 + offsetX + points[i].x * gridSize, displaySize / 2 + offsetY - points[i].y * gridSize);
+        ctx.lineTo(displaySize / 2 + offsetX + points[i + 1].x * gridSize, displaySize / 2 + offsetY - points[i + 1].y * gridSize);
+        ctx.stroke();
+    }
+}
+// ==================== BEZIER CURVE - COMMON FUNCTIONS ====================
+function updateBezierCurve() {
+    if (points.length >= 2) {
+        const numPointsInput = document.getElementById('numPoints');
+        const rangeStartInput = document.getElementById('rangeStart');
+        const rangeEndInput = document.getElementById('rangeEnd');
+        const methodSelect = document.getElementById('methodSelect');
+        let numPoints = 100;
+        if (numPointsInput && numPointsInput.value && !isNaN(parseInt(numPointsInput.value))) {
+            numPoints = parseInt(numPointsInput.value);
+            numPoints--;
+        }
+        let xStart = null;
+        let xEnd = null;
+        if (rangeStartInput && rangeStartInput.value && !isNaN(parseFloat(rangeStartInput.value)) &&
+            rangeEndInput && rangeEndInput.value && !isNaN(parseFloat(rangeEndInput.value))) {
+            xStart = parseFloat(rangeStartInput.value);
+            xEnd = parseFloat(rangeEndInput.value);
+        }
+        const method = methodSelect ? methodSelect.value : 'parametric';
+        if (method === 'parametric') {
+            bezierCurvePoints = buildBezierCurveParametric(numPoints, xStart, xEnd);
+        }
+        else if (method === 'matrix') {
+            // Матричний метод
+            bezierCurvePoints = buildBezierCurveMatrix(numPoints, points, xStart, xEnd);
+        }
+        else {
+            alert("Невідомий метод!");
+            return;
+        }
+        console.log(`Автоматично оновлено криву Безьє з ${bezierCurvePoints.length} точок`);
+    }
+    else {
+        bezierCurvePoints = [];
+    }
+}
+// ==================== BEZIER CURVE - PARAMETRIC METHOD ====================
+function binomialCoefficient(n, k) {
+    if (k === 0 || k === n)
+        return 1;
+    if (k > n)
+        return 0;
+    if (k > n - k)
+        k = n - k; // C(n,k) = C(n,n-k)
+    let coefficient = 1;
+    // Обчислюємо C(n,k) = n*(n-1)*...*(n-k+1) / (k*(k-1)*...*1)
+    for (let i = 0; i < k; i++) {
+        coefficient *= (n - i);
+        coefficient /= (i + 1);
+    }
+    return coefficient;
+}
+function bernsteinPolynomial(i, n, t) {
+    // B_i,n(t) = C(n,i) * t^i * (1-t)^(n-i)
+    const binomCoef = binomialCoefficient(n, i);
+    return binomCoef * Math.pow(t, i) * Math.pow(1 - t, n - i);
+}
+function bezierPointParametric(t, controlPoints) {
+    const n = controlPoints.length - 1; // Степінь кривої Безьє
+    let x = 0;
+    let y = 0;
+    // Застосовуємо формулу B(t) = Sum(i=0 to n) [ P_i * B_i,n(t) ]
+    for (let i = 0; i <= n; i++) {
+        const bernstein = bernsteinPolynomial(i, n, t);
+        x += controlPoints[i].x * bernstein;
+        y += controlPoints[i].y * bernstein;
+    }
+    return { x, y };
+}
+function findTForX(targetX, controlPoints, eps = 0.0001) {
+    const firstPoint = bezierPointParametric(0, controlPoints);
+    const lastPoint = bezierPointParametric(1, controlPoints);
+    const minX = Math.min(firstPoint.x, lastPoint.x);
+    const maxX = Math.max(firstPoint.x, lastPoint.x);
+    if (targetX < minX - eps || targetX > maxX + eps) {
+        return null;
+    }
+    let left = 0;
+    let right = 1;
+    let iterations = 0;
+    const maxIterations = 100;
+    while (right - left > eps && iterations < maxIterations) {
+        const mid = (left + right) / 2;
+        const point = bezierPointParametric(mid, controlPoints);
+        if (Math.abs(point.x - targetX) < eps) {
+            return mid;
+        }
+        if (point.x < targetX) {
+            left = mid;
+        }
+        else {
+            right = mid;
+        }
+        iterations++;
+    }
+    return (left + right) / 2;
+}
+function buildBezierCurveParametric(numPoints = 100, xStart = null, xEnd = null) {
+    if (points.length < 2) {
+        alert("Для побудови кривої Безьє потрібно як мінімум 2 точки!");
+        return [];
+    }
+    if (xStart === null || xEnd === null) {
+        const curvePoints = [];
+        for (let i = 0; i <= numPoints; i++) {
+            const t = i / numPoints;
+            const point = bezierPointParametric(t, points);
+            curvePoints.push(point);
+        }
+        return curvePoints;
+    }
+    const tStart = findTForX(xStart, points);
+    const tEnd = findTForX(xEnd, points);
+    if (tStart === null || tEnd === null) {
+        console.warn(`Не вдалося знайти точки з x = ${xStart} або x = ${xEnd} на кривій.`);
+        return [];
+    }
+    const curvePoints = [];
+    for (let i = 0; i <= numPoints; i++) {
+        const t = tStart + (i / numPoints) * (tEnd - tStart);
+        const point = bezierPointParametric(t, points);
+        curvePoints.push(point);
+    }
+    console.log(`Побудовано криву Безьє з рівно ${curvePoints.length} точками на проміжку x від ${xStart} до ${xEnd}`);
+    return curvePoints;
+}
+// ==================== BEZIER CURVE - MATRIX METHOD ====================
+function getBezierMatrix(n) {
+    const matrix = Array(n + 1).fill(0).map(() => Array(n + 1).fill(0));
+    for (let i = 0; i <= n; i++) {
+        for (let j = 0; j <= i; j++) {
+            let coefficient = Math.pow(-1, i - j) * binomialCoefficient(n, i) * binomialCoefficient(i, j);
+            matrix[j][n - i] = coefficient;
+        }
+    }
+    return matrix;
+}
+function multiplyVectorMatrix(vector, matrix) {
+    const result = Array(matrix[0].length).fill(0);
+    for (let j = 0; j < matrix[0].length; j++) {
+        for (let i = 0; i < vector.length; i++) {
+            result[j] += vector[i] * matrix[i][j];
+        }
+    }
+    return result;
+}
+function multiplyVectorPoints(vector, points) {
+    let x = 0, y = 0;
+    for (let i = 0; i < vector.length; i++) {
+        x += vector[i] * points[i].x;
+        y += vector[i] * points[i].y;
+    }
+    return { x, y };
+}
+function bezierPointMatrix(t, controlPoints) {
+    const n = controlPoints.length - 1; // Степінь кривої Безьє
+    // Створюємо вектор параметра [t^n, t^(n-1), ..., t, 1]
+    const paramVector = Array(n + 1).fill(0);
+    for (let i = 0; i <= n; i++) {
+        paramVector[i] = Math.pow(t, n - i);
+    }
+    // Отримуємо матрицю коефіцієнтів Безьє
+    const matrix = getBezierMatrix(n);
+    bezierMatrix = matrix; // Зберігаємо матрицю для аналізу
+    // Обчислюємо T * M
+    const coefficients = multiplyVectorMatrix(paramVector, matrix);
+    // Обчислюємо (T * M) * P
+    return multiplyVectorPoints(coefficients, controlPoints);
+}
+function findTForXMatrix(targetX, controlPoints, eps = 0.0001) {
+    const firstPoint = bezierPointMatrix(0, controlPoints);
+    const lastPoint = bezierPointMatrix(1, controlPoints);
+    const minX = Math.min(firstPoint.x, lastPoint.x);
+    const maxX = Math.max(firstPoint.x, lastPoint.x);
+    if (targetX < minX - eps || targetX > maxX + eps) {
+        return null;
+    }
+    let left = 0;
+    let right = 1;
+    let iterations = 0;
+    const maxIterations = 100;
+    while (right - left > eps && iterations < maxIterations) {
+        const mid = (left + right) / 2;
+        const point = bezierPointMatrix(mid, controlPoints);
+        if (Math.abs(point.x - targetX) < eps) {
+            return mid;
+        }
+        if (point.x < targetX) {
+            left = mid;
+        }
+        else {
+            right = mid;
+        }
+        iterations++;
+    }
+    return (left + right) / 2;
+}
+function buildBezierCurveMatrix(numPoints = 100, controlPoints, xStart = null, xEnd = null) {
+    if (points.length < 2) {
+        alert("Для побудови кривої Безьє потрібно як мінімум 2 точки!");
+        return [];
+    }
+    const n = controlPoints.length - 1;
+    const matrix = getBezierMatrix(n);
+    console.log(matrix);
+    if (xStart === null || xEnd === null) {
+        const curvePoints = [];
+        for (let i = 0; i <= numPoints; i++) {
+            const t = i / numPoints;
+            const point = bezierPointMatrix(t, points);
+            curvePoints.push(point);
+        }
+        // Видаляємо автоматичний аналіз матриці
+        // analyzeMatrixOnDemand(); 
+        return curvePoints;
+    }
+    const tStart = findTForXMatrix(xStart, points);
+    const tEnd = findTForXMatrix(xEnd, points);
+    if (tStart === null || tEnd === null) {
+        console.warn(`Не вдалося знайти точки з x = ${xStart} або x = ${xEnd} на кривій.`);
+        return [];
+    }
+    const curvePoints = [];
+    for (let i = 0; i <= numPoints; i++) {
+        const t = tStart + (i / numPoints) * (tEnd - tStart);
+        const point = bezierPointMatrix(t, points);
+        curvePoints.push(point);
+    }
+    // analyzeMatrixOnDemand();
+    console.log(`Побудовано криву Безьє за матричним методом з ${curvePoints.length} точками на проміжку x від ${xStart} до ${xEnd}`);
+    return curvePoints;
+}
+// ==================== EVENT HANDLERS ====================
+canvas.addEventListener('mousedown', (e) => {
+    if (e.button !== 0)
+        return;
+    wasCanvasMoved = false;
+    const rect = canvas.getBoundingClientRect();
+    const canvasX = e.clientX - rect.left;
+    const canvasY = e.clientY - rect.top;
+    selectedPointIndex = getPointAtPosition(canvasX, canvasY);
+    if (selectedPointIndex !== -1) {
+        isMovingPoint = true;
+        points[selectedPointIndex].selected = true;
+        console.log(`Точка ${selectedPointIndex} вибрана для переміщення`);
+        drawCoordinateSystem();
+    }
+    else {
+        isDragging = true;
+        startX = e.clientX - offsetX;
+        startY = e.clientY - offsetY;
+    }
+});
+canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const canvasX = e.clientX - rect.left;
+    const canvasY = e.clientY - rect.top;
+    if (isMovingPoint && selectedPointIndex !== -1) {
+        const gridX = (canvasX - displaySize / 2 - offsetX) / gridSize;
+        const gridY = -(canvasY - displaySize / 2 - offsetY) / gridSize;
+        points[selectedPointIndex].x = parseFloat(gridX.toFixed(2));
+        points[selectedPointIndex].y = parseFloat(gridY.toFixed(2));
+        updateBezierCurve();
+        drawCoordinateSystem();
+    }
+    else if (isDragging) {
+        const newOffsetX = e.clientX - startX;
+        const newOffsetY = e.clientY - startY;
+        if (Math.abs(newOffsetX - offsetX) > 0.5 || Math.abs(newOffsetY - offsetY) > 0.5) {
+            wasCanvasMoved = true;
+        }
+        offsetX = newOffsetX;
+        offsetY = newOffsetY;
+        drawCoordinateSystem();
+    }
+});
+canvas.addEventListener('mouseup', () => {
+    if (isMovingPoint && selectedPointIndex !== -1) {
+        points[selectedPointIndex].selected = false;
+        console.log(`Точку ${selectedPointIndex} переміщено в (${points[selectedPointIndex].x}, ${points[selectedPointIndex].y})`);
+        updateBezierCurve();
+        isMovingPoint = false;
+        selectedPointIndex = -1;
+        drawCoordinateSystem();
+        updatePointsList();
+    }
+    isDragging = false;
+});
+canvas.addEventListener('click', (e) => {
+    if (isDragging || isMovingPoint || wasCanvasMoved) {
+        return;
+    }
+    const rect = canvas.getBoundingClientRect();
+    const canvasX = e.clientX - rect.left;
+    const canvasY = e.clientY - rect.top;
+    if (getPointAtPosition(canvasX, canvasY) !== -1) {
+        return;
+    }
+    const gridX = (canvasX - displaySize / 2 - offsetX) / gridSize;
+    const gridY = -(canvasY - displaySize / 2 - offsetY) / gridSize;
+    points.push({
+        x: parseFloat(gridX.toFixed(2)),
+        y: parseFloat(gridY.toFixed(2)),
+        radius: 10,
+        selected: false
+    });
+    updateBezierCurve();
+    // Redraw everything
+    drawCoordinateSystem();
+    updatePointsList();
+    console.log(`Додано точку в координатах (${gridX.toFixed(2)}, ${gridY.toFixed(2)})`);
+});
+canvas.addEventListener('dblclick', (e) => {
+    // Поки нічого не робимо при подвійному кліку
+});
+canvas.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    const canvasX = e.clientX - rect.left;
+    const canvasY = e.clientY - rect.top;
+    pointToDelete = getPointAtPosition(canvasX, canvasY);
+    if (pointToDelete !== -1) {
+        deletePoint(pointToDelete);
+    }
+});
+const addPointButton = document.getElementById('addPointButton');
+if (addPointButton) {
+    addPointButton.addEventListener('click', () => {
+        const xInput = document.getElementById('x');
+        const yInput = document.getElementById('y');
+        if (xInput.value && yInput.value) {
+            const x = parseFloat(xInput.value);
+            const y = parseFloat(yInput.value);
+            if (!isNaN(x) && !isNaN(y)) {
+                createPointFromCoordinates(x, y);
+                xInput.value = '';
+                yInput.value = '';
+            }
+        }
+    });
+}
+const clearCanvasButton = document.getElementById('clearCanvasButton');
+if (clearCanvasButton) {
+    clearCanvasButton.addEventListener('click', () => {
+        if (confirm('Ви впевнені, що хочете видалити всі точки?')) {
+            points = [];
+            bezierCurvePoints = [];
+            drawCoordinateSystem();
+            updatePointsList();
+            console.log('Всі точки видалено, координатну площину перемальовано');
+        }
+    });
+}
+const outputColnButton = document.getElementById('outputColnButton');
+if (outputColnButton) {
+    outputColnButton.addEventListener('click', () => {
+        const methodSelect = document.getElementById('methodSelect');
+        if (methodSelect && methodSelect.value === 'matrix') {
+            if (bezierMatrix.length === 0 && points.length >= 2) {
+                bezierPointMatrix(0, points);
+            }
+            analyzeMatrixOnDemand();
+        }
+        else {
+            alert("Для аналізу матриці коефіцієнтів потрібно вибрати матричний метод побудови кривої.");
+        }
+    });
+}
+if (document.getElementById('methodSelect')) {
+    document.getElementById('methodSelect').addEventListener('change', () => {
+        updateBezierCurve();
+        drawCoordinateSystem();
+    });
+}
+// ==================== INITIALIZATION ====================
 if (ctx) {
     ctx.imageSmoothingEnabled = false;
+    updateBezierCurve();
     drawCoordinateSystem();
+    updatePointsList();
+    addParameterChangeListeners();
 }
 else {
     console.error('Canvas context не знайдено!');
+}
+function analyzeMatrixOnDemand() {
+    if (bezierMatrix.length === 0) {
+        console.log("Матриця коефіцієнтів не ініціалізована.");
+        return;
+    }
+    let zeroCount = 0;
+    for (let i = 0; i < bezierMatrix.length; i++) {
+        for (let j = 0; j < bezierMatrix[i].length; j++) {
+            if (bezierMatrix[i][j] === 0) {
+                zeroCount++;
+            }
+        }
+    }
+    const columnIndex = parseInt(prompt("Введіть номер стовпця матриці для виведення (починаючи з 0):", "0") || "0");
+    if (isNaN(columnIndex) || columnIndex < 0 || columnIndex >= bezierMatrix[0].length) {
+        alert(`Неправильний номер стовпця. Має бути від 0 до ${bezierMatrix[0].length - 1}.`);
+        return;
+    }
+    let columnValues = `Елементи стовпця ${columnIndex} матриці коефіцієнтів:\n`;
+    for (let i = 0; i < bezierMatrix.length; i++) {
+        columnValues += `${bezierMatrix[i][columnIndex]}\n`;
+    }
+    const analysisResult = `${columnValues}\nЗагальна кількість нульових елементів у матриці: ${zeroCount}`;
+    alert(analysisResult);
+    console.log(analysisResult);
+}
+function addParameterChangeListeners() {
+    if (numPointsInput) {
+        numPointsInput.addEventListener('change', () => {
+            updateBezierCurve();
+            drawCoordinateSystem();
+        });
+    }
+    if (rangeStartInput) {
+        rangeStartInput.addEventListener('change', () => {
+            updateBezierCurve();
+            drawCoordinateSystem();
+        });
+    }
+    if (rangeEndInput) {
+        rangeEndInput.addEventListener('change', () => {
+            updateBezierCurve();
+            drawCoordinateSystem();
+        });
+    }
 }

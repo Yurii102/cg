@@ -3,58 +3,73 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lab2</title>
+    <title>Bezier Curve Visualizer</title>
     <link rel="stylesheet" href="page2.css">
 </head>
 <body>
+    <div class="modal-overlay"></div>
     <div class="wrapper">
-        <!-- Ліва частина: Координатна площина -->
         <div class="left-panel">
-            <h2>Координатна площина</h2>
+            <h2>Bezier Curve Editor</h2>
             <canvas id="coordinateSystem"></canvas>
         </div>
 
-        <!-- Права частина: Меню -->
         <div class="right-panel">
-            <h3>Меню</h3>
-            <div style="display: flex; justify-content: space-between;">
-                <!-- Ліва точка -->
-                <div>
-                    <label>Точка 1 (x, y):</label><br>
-                    <input type="number" id="x1" placeholder="X1"> 
-                    <input type="number" id="y1" placeholder="Y1">
-                </div>
+            <label>Точка (x, y):</label>
+            <input type="number" id="x" placeholder="X">
+            <input type="number" id="y" placeholder="Y">
+            <button id="addPointButton">Додати точку</button>
+            
+            <label for="methodSelect">Метод побудови:</label>
+            <select id="methodSelect">
+                <option value="parametric">Параметричний</option>
+                <option value="matrix">Матричний</option>
+            </select>
+            
+            <label>Кількість точок:</label>
+            <input type="number" id="numPoints" value="100" placeholder="Кількість точок">
+            
+            <label>Діапазон координати X:</label>
+            <input type="number" id="rangeStart" placeholder="X мінімум">
+            <input type="number" id="rangeEnd" placeholder="X максимум">
+            
+            <button id="outputColnButton">Вивести стовпець</button>
+            <button id="clearCanvasButton">Очистити</button>
 
-                <!-- Права точка -->
-                <div>
-                    <label>Точка 2 (x, y):</label><br>
-                    <input type="number" id="x2" placeholder="X2"> 
-                    <input type="number" id="y2" placeholder="Y2">
-                </div>
-            </div>
+            <!-- Вибір кольору для відрізків -->
+            <label>Колір дотичних відрізків:</label>
+            <input type="color" id="colorSegments" value="#ff0000"> <!-- Вибір кольору для відрізків -->
 
-            <div style="margin: 10px 0;">
-                <input type="color" id="lineColor" value="#000000">
-            </div>
-            <br>
+            <label>Колір решти відрізків:</label>
+            <input type="color" id="colorOtherSegments" value="#0000ff"> <!-- Вибір кольору для інших відрізків -->
 
-            <div class="create-button">
-                <button id="drawButton">Побудувати</button>    
-            </div>
-            <br>
-
-            <div class="circle-button">
-                <button id="circleButton">Вписати коло</button>    
-            </div>
-            <br>
-
-            <div class="delete-button">
-                <button id="deleteButton">Очистити площину</button>    
-            </div>
+            <!-- Вибір кольору для кривої -->
+            <label>Колір кривої:</label>
+            <input type="color" id="colorCurve" value="#000000"> <!-- Вибір кольору для кривої -->
         </div>
-       
+   
+        <!-- Новий блок для відображення точок -->
+        <div class="points-list" id="pointsList">
+            <strong>Додані точки:</strong>
+            <ul id="pointsContainer"></ul>
+        </div>
     </div>
-
+    
+    <!-- Модальне вікно редагування точки -->
+    <div id="editForm" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div class="form-group">
+                <label for="editX">X:</label>
+                <input type="number" id="editX">
+            </div>
+            <div class="form-group">
+                <label for="editY">Y:</label>
+                <input type="number" id="editY">
+            </div>
+            <button id="savePointBtn">Зберегти зміни</button>
+        </div>
+    </div>
     <script src="./dist/script.js"></script>
 </body>
 </html>
