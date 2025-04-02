@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fractus</title>
+    <link rel="stylesheet" href="./page3.css">
+</head>
+<body>
+    <main>
+        <div class="menu">
+            <select id="typeFractal">
+                <option value="carpetSierpinski">Sierpinski carpet</option>
+                <option value="triangleSierpinski">Sierpinski triangle</option>
+                <option value="myCustom">Custom fractal</option>
+            </select>
+    
+            <button id="drawFractal">Draw Fractal</button>
+            <button id="saveFractal">Save Fractal</button>
+            <button id="clearCanvas">Clear Canvas</button>
+            
+            <div class="color-picker-container">
+                <label for="canvasColorPicker">Canvas Color:</label>
+                <input type="color" id="canvasColorPicker" value="#ecf0f1">
+            </div>
+        </div>
+    
+        <div class="canvas-panel">
+            <canvas id="canvas-System"></canvas>
+        </div>
+    </main>
+    
+
+    <script src="./dist/script.js"></script> 
+</body>
+</html>
