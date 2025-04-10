@@ -7,29 +7,64 @@
     <link rel="stylesheet" href="./page3.css">
 </head>
 <body>
-    <main>
+    <header>
         <div class="menu">
-            <select id="typeFractal">
-                <option value="carpetSierpinski">Sierpinski carpet</option>
-                <option value="triangleSierpinski">Sierpinski triangle</option>
-                <option value="myCustom">Custom fractal</option>
-            </select>
-    
-            <button id="drawFractal">Draw Fractal</button>
-            <button id="saveFractal">Save Fractal</button>
-            <button id="clearCanvas">Clear Canvas</button>
+            <div class="header-left">
+                <label class="option-label">
+                    <input type="checkbox" id="toggleGrid" checked>
+                    Show Grid
+                </label>
+                <label class="option-label">
+                    <input type="checkbox" id="toggleCoordinates" checked>
+                    Show Coordinates
+                </label>
+            </div>
             
-            <div class="color-picker-container">
-                <label for="canvasColorPicker">Canvas Color:</label>
-                <input type="color" id="canvasColorPicker" value="#ecf0f1">
+            <div class="header-center">
+                <select id="typeFractal">
+                    <option value="carpetSierpinski">Sierpinski carpet</option>
+                    <option value="triangleSierpinski">Sierpinski triangle</option>
+                    <option value="myCustom">Custom fractal</option>
+                </select>
+        
+                <button id="drawFractal">Draw Fractal</button>
+                <button id="saveFractal">Save Fractal</button>
+                <button id="clearCanvas">Clear Canvas</button>
+            </div>
+            
+            <div class="header-right">
+                <div class="color-picker-container">
+                    <label for="canvasColorPicker">Canvas Color:</label>
+                    <input type="color" id="canvasColorPicker" value="#ecf0f1">
+                </div>
             </div>
         </div>
-    
+    </header>
+
+    <main>
         <div class="canvas-panel">
             <canvas id="canvas-System"></canvas>
         </div>
+
+        <div id="fractalGallery" class="gallery">
+            <h2>Saved Fractals Gallery</h2>
+            <div class="gallery-grid" id="galleryGrid"></div>
+        </div>
     </main>
+
+    <!-- MODAL -->
+    <div id="fractalModal" class="modal">
+        <div class="modal-content">
+        <span class="close-btn">&times;</span>
+        <h2>Fractal Parameters</h2>
     
+        <div id="fractalFormContainer">
+            <!-- Форма параметрів буде вставлятися динамічно -->
+        </div>
+    
+        <button id="applyFractal">Apply</button>
+        </div>
+    </div>
 
     <script src="./dist/script.js"></script> 
 </body>
