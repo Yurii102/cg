@@ -474,8 +474,8 @@ function setupPixelInfoDisplay() {
                 const hslS = l === 0 || l === 1 ? 0 : (v - l) / Math.min(l, 1 - l);
                 const pixelInfo = `Джерело:    ${source}
 Координати: (${Math.round(x / scaleFactor)}, ${Math.round(y / scaleFactor)})
-RGB:        (${r}, ${g}, ${b}, ${a})
-HSL:        (${Math.round(h)}°, ${(s * 100).toFixed(1)}%, ${(l * 100).toFixed(1)}%)
+RGB:        (${r}, ${g}, ${b})
+HSV:        (${Math.round(h)}°, ${(s * 100).toFixed(1)}%, ${(l * 100).toFixed(1)}%)
 XYZ:        (${X.toFixed(2)}, ${Y.toFixed(2)}, ${Z.toFixed(2)})`;
                 const pixelInfoPanel = document.getElementById('pixelInfoPanel');
                 const pixelInfoContent = document.getElementById('pixelInfoContent');
