@@ -1,0 +1,303 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background-color: #eceff1; /* Light Grayish Blue */
+    font-family: 'Segoe UI', Arial, sans-serif;
+    color: #37474f; /* Dark Slate Gray */
+}
+
+main {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    max-width: 1400px; /* Increased max-width for side-by-side layout */
+    margin: 0 auto;
+}
+
+h1 {
+    color: #00695c; /* Dark Teal */
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.content-wrapper {
+    display: flex;
+    width: 100%;
+    gap: 20px;
+}
+
+.left-panel {
+    flex: 3; /* Takes more space */
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.right-panel {
+    flex: 1; /* Takes less space */
+    display: flex;
+    flex-direction: column;
+}
+
+.controls-container {
+    background: #ffffff; /* White */
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    width: 100%;
+    /* margin-bottom removed as gap is handled by flex container */
+}
+
+.drawing-controls { /* Specific class for drawing controls if needed */
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    justify-content: space-between;
+}
+
+/* Animation controls specific styles */
+.animation-controls {
+    /* background, padding, etc. inherited from .controls-container */
+    display: flex;
+    flex-direction: column; /* Stack animation params and buttons vertically */
+    gap: 20px;
+}
+
+.scale-controls {
+    flex: 1; /* Allow it to take available space if needed */
+}
+
+.scale-controls h3 {
+    margin-bottom: 15px;
+    color: #00796b; /* Teal */
+    font-size: 18px;
+}
+
+.control-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-bottom: 10px;
+}
+
+.animation-buttons {
+    display: flex;
+    flex-direction: column; /* Stack buttons if needed, or row */
+    gap: 10px;
+    align-items: stretch; /* Make buttons full width of their container */
+}
+
+#animateBtn, #stopAnimBtn, button#drawBtn {
+    padding: 10px 20px;
+    background: linear-gradient(to right, #00796b, #00897b); /* Teal gradient */
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: bold;
+    min-width: 160px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+#animateBtn:hover, #stopAnimBtn:hover, button#drawBtn:hover {
+    background: linear-gradient(to right, #00695c, #00796b); /* Darker Teal gradient */
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0, 77, 64, 0.2);
+}
+
+#animateBtn:disabled, #stopAnimBtn:disabled {
+    background: #b0bec5; /* Blue Grey Lighten-3 */
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+    color: #78909c;
+}
+
+#stopAnimBtn {
+    background: linear-gradient(to right, #d32f2f, #e53935); /* Red gradient */
+}
+
+#stopAnimBtn:hover {
+    background: linear-gradient(to right, #c62828, #d32f2f); /* Darker Red gradient */
+}
+
+select {
+    padding: 8px;
+    border: 1px solid #b0bec5; /* Blue Grey Lighten-3 */
+    border-radius: 4px;
+    font-size: 14px;
+    background: #fff;
+    min-width: 120px;
+    cursor: pointer;
+    color: #37474f;
+}
+
+select:focus {
+    border-color: #00796b; /* Teal */
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(0, 121, 107, 0.2);
+}
+
+.points-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px; 
+    justify-content: flex-start; 
+    flex: 1;
+}
+
+.point-group {
+    background: #e0f2f1; /* Teal Lighten-5 */
+    padding: 15px;
+    border-radius: 8px;
+    border-left: 4px solid #00796b; /* Teal */
+    min-width: 180px;
+    transition: all 0.3s ease;
+}
+
+.point-group:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+.point-group h3 {
+    margin-bottom: 10px;
+    color: #00796b; /* Teal */
+    font-size: 16px;
+}
+
+.color-draw-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 15px;
+    align-items: center;
+}
+
+.color-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+}
+
+label {
+    margin: 5px 0;
+    color: #455a64; /* Blue Grey Darken-1 */
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+input[type="number"] {
+    width: 80px;
+    padding: 8px;
+    border: 1px solid #cfd8dc; /* Blue Grey Lighten-4 */
+    border-radius: 4px;
+    font-size: 14px;
+    background: #fff;
+    transition: all 0.2s ease;
+    color: #37474f;
+}
+
+input[type="color"] {
+    width: 60px;
+    height: 40px;
+    border: 1px solid #cfd8dc;
+    border-radius: 4px;
+    background: transparent;
+    cursor: pointer;
+    padding: 2px; /* Small padding for the color picker itself */
+}
+
+input[type="number"]:focus {
+    border-color: #00796b; /* Teal */
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(0, 121, 107, 0.2);
+}
+
+button#drawBtn {
+    align-self: center; /* Already set by parent .color-draw-container */
+    margin-top: 10px; /* Keep or adjust as needed */
+}
+
+#error {
+    min-height: 24px;
+    color: #c62828; /* Red Darken-3 */
+    font-weight: 500;
+    /* margin-bottom removed, handled by flex gap in .left-panel */
+    text-align: center;
+    background-color: #ffcdd2; /* Pink Lighten-4 */
+    padding: 8px 16px;
+    border-radius: 4px;
+    width: 100%;
+    /* max-width: 800px; */ /* Let it take full width of left panel */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.canvas-container {
+    position: relative;
+    /* margin-top removed, handled by flex gap in .left-panel */
+    width: 100%; /* Ensure it takes full width of its column */
+}
+
+canvas#plane {
+    border: 2px solid #00796b; /* Teal */
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.07);
+    cursor: grab;
+    transition: box-shadow 0.3s ease;
+    display: block; /* To remove extra space below canvas if any */
+    width: 100%;    /* Make canvas responsive within its container */
+    height: auto;   /* Adjust height automatically or set fixed */
+}
+
+canvas#plane:active {
+    cursor: grabbing;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.canvas-instructions {
+    display: flex;
+    justify-content: space-around;
+    width: 100%;
+    /* margin-top removed, handled by flex gap in .left-panel */
+}
+
+.canvas-instructions p {
+    color: #546e7a; /* Blue Grey */
+    font-size: 14px;
+    font-style: italic;
+}
+
+@media (max-width: 1024px) { /* Adjust breakpoint for when layout stacks */
+    .content-wrapper {
+        flex-direction: column;
+    }
+    .left-panel, .right-panel {
+        flex: none; /* Reset flex grow */
+        width: 100%;
+    }
+}
+
+@media (max-width: 768px) {
+    .points-container {
+        flex-direction: column;
+    }
+    .drawing-controls {
+        flex-direction: column;
+    }
+    /* canvas#plane width 100% and height auto is already set */
+}
