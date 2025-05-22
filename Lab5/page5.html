@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lab 5</title>
+    <link rel="stylesheet" href="./page5.css">
+</head>
+<body>
+   
+    <main>
+        <h1>Quadrilateral Drawing Tool</h1>
+        <div class="content-wrapper">
+            <div class="left-panel">
+                <div class="controls-container drawing-controls">
+                    <div class="points-container">
+                        <div class="point-group">
+                            <h3>Diagonal Point 1</h3>
+                            <label>X: <input type="number" id="x1" step="any"></label>
+                            <label>Y: <input type="number" id="y1" step="any"></label>
+                        </div>
+                        <div class="point-group">
+                            <h3>Diagonal Point 2</h3>
+                            <label>X: <input type="number" id="x2" step="any"></label>
+                            <label>Y: <input type="number" id="y2" step="any"></label>
+                        </div>
+                    </div>
+                    
+                    <div class="color-draw-container">
+                        <div class="color-picker">
+                            <label for="fillColor">Fill Color:</label>
+                            <input type="color" id="fillColor" value="#80cbc4"> <!-- Updated default color -->
+                        </div>
+                        <button id="drawBtn">Draw Shape</button>
+                    </div>
+                </div>
+        
+                <div id="error"></div>
+                <div class="canvas-container">
+                    <canvas id="plane" width="900" height="600"></canvas>
+                    <div class="canvas-instructions">
+                        <p>Use mouse wheel to zoom in/out</p>
+                        <p>Click and drag to pan the view</p>
+                    </div>
+                </div>
+            </div>
+            <div class="right-panel">
+                <div class="controls-container animation-controls">
+                    <div class="scale-controls">
+                        <h3>Animation Parameters</h3>
+                        <div class="control-row">
+                            <label>Scale X: <input type="number" id="animScaleX" value="1.5" step="0.1" min="0.1"></label>
+                            <label>Scale Y: <input type="number" id="animScaleY" value="1.5" step="0.1" min="0.1"></label>
+                            <label>Animation Duration (ms): <input type="number" id="animDuration" value="2000" step="100" min="100"></label>
+                        </div>
+                        <div class="control-row">
+                            <label>Vertex for mirroring:
+                                <select id="mirrorVertex">
+                                    <option value="0">Top-Left</option>
+                                    <option value="1">Top-Right</option>
+                                    <option value="2">Bottom-Right</option>
+                                    <option value="3">Bottom-Left</option>
+                                </select>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="animation-buttons">
+                        <button id="animateBtn">Start Animation</button>
+                        <button id="stopAnimBtn" disabled>Pause Animation</button> <!-- Text updated -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <script src="./dist/script.js"></script> 
+</body>
+</html>
