@@ -8,10 +8,17 @@ let lastMouseY = 0;
 let drawnShapes = [];
 // --- Змінні для анімації ---
 let isAnimating = false;
-let isPaused = false; // Нова змінна стану для паузи
 let animationFrameId = null;
+let originalPoints = [];
 let currentAnimationTime = 0;
 let animationStartTime = null;
+let selectedShapeIndex = -1; // Індекс фігури, яка анімується
+let mirrorVertexIndex = 0; // Індекс вершини для дзеркального відображення
+let isPaused = false; // Чи анімація на паузі
+let pausedProgress = 0; // Прогрес анімації на момент паузи
+let animationDuration = 0; // Тривалість анімації
+// Функція для малювання лінії відображення
+let drawReflectionLine = null;
 // Одинична матриця
 const identityMatrix = [
     [1, 0, 0],
@@ -53,6 +60,107 @@ function createMirrorMatrix() {
         [0, -1, 0],
         [0, 0, 1]
     ];
+}
+// Створення матриці дзеркального відображення відносно точки з масштабуванням
+function createMirrorScaleMatrixRelativeToPoint(px, py, scale) {
+    // Комбінація: перенести точку в початок → дзеркально відобразити → масштабувати → перенести назад
+    const T1 = createTranslationMatrix(-px, -py);
+    const M = createMirrorMatrix();
+    const S = createScalingMatrix(scale, scale);
+    const T2 = createTranslationMatrix(px, py);
+    // Результуюча матриця: T2 * S * M * T1
+    let result = multiplyMatrices(M, T1);
+    result = multiplyMatrices(S, result);
+    result = multiplyMatrices(T2, result);
+    return result;
+}
+// Створення матриці дзеркального відображення відносно точки
+function createMirrorMatrixRelativeToPoint(px, py) {
+    // Комбінація: перенести точку в початок → дзеркально відобразити → перенести назад
+    const T1 = createTranslationMatrix(-px, -py);
+    const M = createMirrorMatrix();
+    const T2 = createTranslationMatrix(px, py);
+    // Результуюча матриця: T2 * M * T1
+    let result = multiplyMatrices(M, T1);
+    result = multiplyMatrices(T2, result);
+    return result;
+}
+// Створення матриці дзеркального відображення відносно лінії з масштабуванням
+function createMirrorScaleMatrixRelativeToLine(px, py, // Точка на лінії
+dirX, dirY, // Напрямний вектор лінії (нормалізований)
+scale // Коефіцієнт масштабування
+) {
+    // 1. Перенесення точки на лінії до початку координат
+    const T1 = createTranslationMatrix(-px, -py);
+    // 2. Обертання, щоб вирівняти лінію з віссю X
+    const angle = Math.atan2(dirY, dirX);
+    const cosA = Math.cos(angle);
+    const sinA = Math.sin(angle);
+    const R1 = [
+        [cosA, sinA, 0],
+        [-sinA, cosA, 0],
+        [0, 0, 1]
+    ];
+    // 3. Відображення відносно осі X (y → -y)
+    const F = [
+        [1, 0, 0],
+        [0, -1, 0],
+        [0, 0, 1]
+    ];
+    // 4. Масштабування
+    const S = createScalingMatrix(scale, scale);
+    // 5. Обертання назад
+    const R2 = [
+        [cosA, -sinA, 0],
+        [sinA, cosA, 0],
+        [0, 0, 1]
+    ];
+    // 6. Повернення до початкової позиції
+    const T2 = createTranslationMatrix(px, py);
+    // Об'єднуємо перетворення: T2 * R2 * S * F * R1 * T1
+    let result = multiplyMatrices(R1, T1);
+    result = multiplyMatrices(F, result);
+    result = multiplyMatrices(S, result);
+    result = multiplyMatrices(R2, result);
+    result = multiplyMatrices(T2, result);
+    return result;
+}
+// Створення матриці дзеркального відображення відносно лінії, що проходить через точку
+// і має заданий напрямний вектор
+function createMirrorMatrixRelativeToLine(px, py, // Точка на лінії
+dirX, dirY // Напрямний вектор лінії (нормалізований)
+) {
+    // 1. Перенесення точки на лінії до початку координат
+    const T1 = createTranslationMatrix(-px, -py);
+    // 2. Обертання, щоб вирівняти лінію з віссю X
+    const angle = Math.atan2(dirY, dirX);
+    const cosA = Math.cos(angle);
+    const sinA = Math.sin(angle);
+    const R1 = [
+        [cosA, sinA, 0],
+        [-sinA, cosA, 0],
+        [0, 0, 1]
+    ];
+    // 3. Відображення відносно осі X (y → -y)
+    const F = [
+        [1, 0, 0],
+        [0, -1, 0],
+        [0, 0, 1]
+    ];
+    // 4. Обертання назад
+    const R2 = [
+        [cosA, -sinA, 0],
+        [sinA, cosA, 0],
+        [0, 0, 1]
+    ];
+    // 5. Повернення до початкової позиції
+    const T2 = createTranslationMatrix(px, py);
+    // Об'єднуємо перетворення: T2 * R2 * F * R1 * T1
+    let result = multiplyMatrices(R1, T1);
+    result = multiplyMatrices(F, result);
+    result = multiplyMatrices(R2, result);
+    result = multiplyMatrices(T2, result);
+    return result;
 }
 // Застосування матриці перетворення до точки
 function transformPoint(matrix, x, y) {
@@ -100,7 +208,7 @@ function drawPlane(ctx, width, height) {
     const yEnd = Math.ceil(yEndMath / step) * step;
     // --- Сітка ---
     ctx.save();
-    ctx.strokeStyle = "#e0e0e0"; // Light Gray for grid lines
+    ctx.strokeStyle = "#e0e0e0";
     ctx.lineWidth = 1;
     for (let x = xStart; x <= xEnd; x += step) {
         if (x % step !== 0)
@@ -123,7 +231,7 @@ function drawPlane(ctx, width, height) {
     ctx.restore();
     // --- Ось X ---
     ctx.save();
-    ctx.strokeStyle = "#455a64"; // Blue Grey Darken-1 for axis lines
+    ctx.strokeStyle = "#000";
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(0, cy);
@@ -138,7 +246,7 @@ function drawPlane(ctx, width, height) {
     ctx.restore();
     // --- Ось Y ---
     ctx.save();
-    ctx.strokeStyle = "#455a64"; // Blue Grey Darken-1 for axis lines
+    ctx.strokeStyle = "#000";
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(cx, 0);
@@ -154,7 +262,7 @@ function drawPlane(ctx, width, height) {
     // --- Підписи на осях ---
     ctx.save();
     ctx.font = "12px Arial";
-    ctx.fillStyle = "#37474f"; // Dark Slate Gray for axis text
+    ctx.fillStyle = "#000";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     // Визначення позицій для підписів
@@ -179,7 +287,7 @@ function drawPlane(ctx, width, height) {
             ctx.beginPath();
             ctx.moveTo(px, tickY1);
             ctx.lineTo(px, tickY2);
-            ctx.strokeStyle = "#455a64"; // Blue Grey Darken-1 for ticks
+            ctx.strokeStyle = "#000";
             ctx.lineWidth = 1;
             ctx.stroke();
         }
@@ -199,7 +307,7 @@ function drawPlane(ctx, width, height) {
             ctx.beginPath();
             ctx.moveTo(tickX1, py);
             ctx.lineTo(tickX2, py);
-            ctx.strokeStyle = "#455a64"; // Blue Grey Darken-1 for ticks
+            ctx.strokeStyle = "#000";
             ctx.lineWidth = 1;
             ctx.stroke();
         }
@@ -221,11 +329,24 @@ function drawPlane(ctx, width, height) {
     ctx.restore();
 }
 // --- Малювання квадрата за чотирма точками з урахуванням заливки ---
-function drawSquare(ctx, points, fillColor, width, height) {
+function drawSquare(ctx, points, fillColor, width, height, shapeScale) {
+    // Функція трансформації з урахуванням масштабу фігури
+    const transformWithShapeScale = (x, y) => {
+        if (shapeScale === undefined) {
+            // Якщо масштаб фігури не вказано, використовуємо звичайну трансформацію
+            return transform(x, y, width, height);
+        }
+        else {
+            // Використовуємо фіксований масштаб фігури
+            const cx = width / 2 - _currentPosition.x * _scale;
+            const cy = height / 2 + _currentPosition.y * _scale;
+            return [cx + x * shapeScale, cy - y * shapeScale];
+        }
+    };
     // Перетворення математичних координат у координати canvas
-    const transformedPoints = points.map(([x, y]) => transform(x, y, width, height));
+    const transformedPoints = points.map(([x, y]) => transformWithShapeScale(x, y));
     ctx.save();
-    ctx.strokeStyle = "#00695c"; // Dark Teal for square border
+    ctx.strokeStyle = "blue";
     ctx.lineWidth = 2;
     ctx.fillStyle = fillColor;
     // Малювання заповненого квадрата
@@ -244,12 +365,46 @@ function showError(msg) {
     if (errDiv)
         errDiv.textContent = msg;
 }
+// --- Функція для оновлення селектора фігур ---
+function updateShapeSelector() {
+    const shapeSelector = document.getElementById("shapeSelector");
+    // Очищуємо поточні опції
+    shapeSelector.innerHTML = '';
+    // Додаємо опцію "Latest Shape"
+    const latestOption = document.createElement("option");
+    latestOption.value = "-1";
+    latestOption.textContent = "Latest Shape";
+    shapeSelector.appendChild(latestOption);
+    // Додаємо опції для кожної фігури
+    drawnShapes.forEach((shape, index) => {
+        const option = document.createElement("option");
+        option.value = index.toString();
+        option.textContent = `Shape ${index + 1}`;
+        shapeSelector.appendChild(option);
+    });
+    // Вибираємо останню фігуру за замовчуванням
+    if (drawnShapes.length > 0) {
+        shapeSelector.value = (drawnShapes.length - 1).toString();
+    }
+}
 // --- Функція для перемальовки всього на канвасі ---
 function redrawCanvas(ctx, width, height) {
     drawPlane(ctx, width, height); // Малюємо координатну площину
     drawnShapes.forEach(shape => {
-        drawSquare(ctx, shape.points, shape.fillColor, width, height);
+        drawSquare(ctx, shape.points, shape.fillColor, width, height, shape.shapeScale);
     });
+    // Відключаємо малювання червоної лінії
+    // if (isAnimating && selectedShapeIndex >= 0 && drawReflectionLine !== null) {
+    //     drawReflectionLine(ctx, width, height);
+    // }
+}
+// --- Функція для трансформації фігур під поточний масштаб ---
+function transformShapesToCurrentScale() {
+    drawnShapes.forEach(shape => {
+        // Оновлюємо масштаб фігури до поточного масштабу canvas
+        shape.shapeScale = _scale;
+    });
+    console.log("Фігури перетворено до поточного масштабу:", _scale);
 }
 window.onload = () => {
     const canvas = document.getElementById("plane");
@@ -266,10 +421,42 @@ window.onload = () => {
         const x2 = parseFloat(document.getElementById("x2").value);
         const y2 = parseFloat(document.getElementById("y2").value);
         // Отримання кольору заливки
-        const fillColor = document.getElementById("fillColor").value;
-        // Перевірка на правильність введення
+        const fillColor = document.getElementById("fillColor").value; // Перевірка на правильність введення
         if (isNaN(x1) || isNaN(y1) || isNaN(x2) || isNaN(y2)) {
-            showError("Please enter valid numbers for both diagonal points.");
+            const errorMsg = "Будь ласка, введіть правильні числові значення для точок Top Left та Bottom Right.";
+            showError(errorMsg);
+            alert(errorMsg);
+            return;
+        }
+        // Перевірка, чи точки не однакові
+        if (x1 === x2 && y1 === y2) {
+            const errorMsg = "Помилка: Точки Top Left та Bottom Right не можуть бути однаковими! Квадрат неможливо побудувати.";
+            showError(errorMsg);
+            alert(errorMsg);
+            return;
+        }
+        // Перевірка, чи діагональ не занадто коротка
+        const diagonalLength = Math.sqrt(Math.pow((x2 - x1), 2) + Math.pow((y2 - y1), 2));
+        if (diagonalLength < 0.01) {
+            const errorMsg = "Помилка: Діагональ занадто коротка! Точки знаходяться занадто близько одна до одної.";
+            showError(errorMsg);
+            alert(errorMsg);
+            return;
+        }
+        // Перевірка на некоректні значення (нескінченність, занадто великі числа)
+        if (!isFinite(x1) || !isFinite(y1) || !isFinite(x2) || !isFinite(y2)) {
+            const errorMsg = "Помилка: Некоректні значення координат (нескінченність або занадто великі числа).";
+            showError(errorMsg);
+            alert(errorMsg);
+            return;
+        }
+        // Перевірка на розумні межі координат
+        const maxCoord = 10000;
+        if (Math.abs(x1) > maxCoord || Math.abs(y1) > maxCoord ||
+            Math.abs(x2) > maxCoord || Math.abs(y2) > maxCoord) {
+            const errorMsg = `Помилка: Координати занадто великі! Максимальне значення: ±${maxCoord}.`;
+            showError(errorMsg);
+            alert(errorMsg);
             return;
         }
         // Розрахунок координат вершин квадрата за діагоналлю
@@ -286,209 +473,273 @@ window.onload = () => {
             [x3, y3], // Третя вершина квадрата
             [x2, y2], // Друга діагональна точка
             [x4, y4] // Четверта вершина квадрата
-        ];
-        // Додаємо нову фігуру до масиву
-        drawnShapes.push({ points: newShapePoints, fillColor: fillColor, originalPoints: [...newShapePoints] }); // Зберігаємо originalPoints тут
+        ]; // Додаємо нову фігуру до масиву з поточним масштабом canvas
+        drawnShapes.push({
+            points: newShapePoints,
+            fillColor: fillColor,
+            shapeScale: _scale // Зберігаємо поточний масштаб canvas
+        });
+        // Скидаємо стан анімації при малюванні нової фігури
+        isPaused = false;
+        pausedProgress = 0;
+        const animateBtn = document.getElementById("animateBtn");
+        animateBtn.textContent = "Start Animation";
         // Оновлюємо originalPoints для анімації останньої намальованої фігури
         // Це важливо, щоб анімація завжди починалася з поточного стану останньої фігури
-        // originalPoints = [...newShapePoints]; // Видаляємо, бо тепер originalPoints зберігаються для кожної фігури
-        // Перемальовуємо все
+        originalPoints = [...newShapePoints];
+        // Оновлюємо селектор фігур
+        updateShapeSelector(); // Перемальовуємо все
         redrawCanvas(ctx, width, height);
         // Вмикаємо кнопку анімації
-        const animateBtn = document.getElementById("animateBtn");
         animateBtn.disabled = false;
-    };
-    // --- Анімація ---
-    const animateBtn = document.getElementById("animateBtn");
-    const pauseResumeBtn = document.getElementById("stopAnimBtn"); // Перейменовуємо для ясності
-    let scaleX_anim, scaleY_anim, duration_anim, mirrorVertexIndex_anim;
-    function animateStep(timestamp) {
-        if (!isAnimating && !isPaused) { // Повністю зупинено або ще не почато
-            if (animationFrameId)
-                cancelAnimationFrame(animationFrameId);
-            animationFrameId = null;
-            return;
-        }
-        if (isPaused) { // Якщо на паузі, нічого не робимо, але зберігаємо frameId для можливого скасування
-            if (animationFrameId)
-                cancelAnimationFrame(animationFrameId); // Скасувати попередній запит, якщо він був
-            animationFrameId = requestAnimationFrame(animateStep); // Продовжуємо "слухати" для resume
-            return;
-        }
-        if (!animationStartTime) {
-            animationStartTime = timestamp; // Встановлюємо час початку для поточного сегменту
-        }
-        // Розраховуємо час, що минув з моменту останнього resume/start
-        const deltaTime = timestamp - animationStartTime;
-        // Додаємо до загального часу анімації
-        // currentAnimationTime оновлюється тільки тут, коли анімація активна
-        // При паузі, ми зберігаємо останнє значення currentAnimationTime
-        // При resume, animationStartTime скидається, щоб deltaTime почався з 0 для нового сегменту,
-        // але ми додаємо його до збереженого currentAnimationTime.
-        // Краще: currentAnimationTime оновлюється тільки коли isAnimating = true
-        // При паузі, ми зберігаємо останнє значення currentAnimationTime.
-        // При resume, animationStartTime = timestamp; і ми продовжуємо з currentAnimationTime.
-        // Переробка логіки часу:
-        // currentAnimationTime - це загальний прогрес анімації.
-        // animationStartTime - це точка відліку для поточного виклику requestAnimationFrame.
-        // При паузі: зберігаємо currentAnimationTime.
-        // При resume: animationStartTime = timestamp (початок нового активного відрізку)
-        //              і ми додаємо deltaTime до збереженого currentAnimationTime.
-        // Ще простіше:
-        // `currentAnimationTime` - це загальний час, який анімація вже програлася.
-        // `animationStartTime` - це `performance.now()` коли анімація почалася або продовжилася.
-        // В `animateStep`, `elapsedSinceLastResume = timestamp - animationStartTime`.
-        // `totalElapsedTime = timeBeforePause + elapsedSinceLastResume`.
-        // Давайте використаємо `currentAnimationTime` як єдиний накопичувач часу.
-        // При старті: currentAnimationTime = 0.
-        // При паузі: нічого не робимо з currentAnimationTime, воно зберігає останнє значення.
-        // При resume: animationStartTime = timestamp (щоб відняти від нього в наступному кадрі)
-        //             і ми будемо додавати (timestamp - previousTimestamp) до currentAnimationTime.
-        // Це стає складним.
-        // Найпростіший підхід для pause/resume:
-        // 1. Коли анімація починається (або продовжується): `animationStartTime = timestamp;`
-        // 2. У кожному кадрі: `currentAnimationTime += (timestamp - lastFrameTimestamp);` (потрібен `lastFrameTimestamp`)
-        // Або:
-        // `currentAnimationTime` зберігає загальний час.
-        // При паузі, `currentAnimationTime` фіксується.
-        // При resume, `animationStartTime = timestamp;` (щоб `deltaTime` почався з 0 для нового сегменту)
-        // Це виглядає правильно.
-        // Повернемось до:
-        // `currentAnimationTime` - це загальний час, який анімація вже програлася.
-        // `animationStartTime` - це `performance.now()` коли анімація почалася або продовжилася.
-        // В `animateStep`, `elapsedInThisSegment = timestamp - animationStartTime`.
-        // `totalProgressTime = timeAtPause + elapsedInThisSegment`.
-        // `timeAtPause` буде `currentAnimationTime` на момент паузи.
-        // Поточна реалізація `currentAnimationTime = timestamp - animationStartTime;`
-        // означає, що `currentAnimationTime` скидається при кожному resume, якщо `animationStartTime` оновлюється.
-        // Це не те, що нам потрібно. `currentAnimationTime` має накопичуватись.
-        // Виправлена логіка часу:
-        // `currentAnimationTime` - загальний час анімації, що минув.
-        // `animationStartTime` - використовується для розрахунку `deltaTime` в кожному активному сегменті.
-        // При старті: `currentAnimationTime = 0; animationStartTime = timestamp;`
-        // При паузі: `animationFrameId` скасовується. `currentAnimationTime` зберігає значення.
-        // При resume: `animationStartTime = timestamp;` (щоб `deltaTime` почався з 0 для нового сегменту)
-        //             `animateStep` продовжує додавати `deltaTime` до `currentAnimationTime`.
-        // Ні, це не так. `currentAnimationTime` має бути тим, що передається в `Math.min`.
-        // Давайте так:
-        // `totalAnimatedTime` - зберігає час, який анімація вже відпрацювала до паузи.
-        // `segmentStartTime` - час початку поточного активного сегменту (після старту або resume).
-        // В `animateStep`:
-        //   `elapsedInSegment = timestamp - segmentStartTime`.
-        //   `currentAnimationProgress = totalAnimatedTime + elapsedInSegment`.
-        //   `progress = Math.min(currentAnimationProgress / duration_anim, 1)`.
-        // При старті: `totalAnimatedTime = 0; segmentStartTime = timestamp`.
-        // При паузі: `totalAnimatedTime += (timestamp - segmentStartTime)`.
-        // При resume: `segmentStartTime = timestamp`.
-        // Це виглядає надійніше.
-        // Перейменуємо `animationStartTime` на `segmentStartTime`
-        // і `currentAnimationTime` на `totalAnimatedTime`.
-        if (!segmentStartTime)
-            segmentStartTime = timestamp; // segmentStartTime встановлюється при старті/resume
-        const elapsedInSegment = timestamp - segmentStartTime;
-        const currentAnimationProgress = totalAnimatedTime + elapsedInSegment;
-        const progress = Math.min(currentAnimationProgress / duration_anim, 1);
-        // ... (решта логіки animateStep як раніше, використовуючи scaleX_anim і т.д.) ...
-        drawnShapes.forEach((shape, shapeIndex) => {
-            if (!shape.originalPoints)
-                return;
-            const currentOriginalPoints = shape.originalPoints;
-            const pivotVertex = currentOriginalPoints[mirrorVertexIndex_anim];
-            const T_fromPivot = createTranslationMatrix(-pivotVertex[0], -pivotVertex[1]);
-            const T_toPivot = createTranslationMatrix(pivotVertex[0], pivotVertex[1]);
-            const M_mirror = createMirrorMatrix();
-            const S_target = createScalingMatrix(scaleX_anim, scaleY_anim);
-            let M_fullyTransformed = multiplyMatrices(S_target, T_fromPivot);
-            M_fullyTransformed = multiplyMatrices(M_mirror, M_fullyTransformed);
-            M_fullyTransformed = multiplyMatrices(T_toPivot, M_fullyTransformed);
-            let transformMatrix;
-            if (progress <= 0.5) {
-                const phaseProgress = progress / 0.5;
-                transformMatrix = interpolateMatrices(identityMatrix, M_fullyTransformed, phaseProgress);
-            }
-            else {
-                const phaseProgress = (progress - 0.5) / 0.5;
-                transformMatrix = interpolateMatrices(M_fullyTransformed, identityMatrix, phaseProgress);
-            }
-            const transformedPoints = currentOriginalPoints.map(([x, y]) => {
-                return transformPoint(transformMatrix, x, y);
-            });
-            drawnShapes[shapeIndex].points = transformedPoints;
-        });
-        redrawCanvas(ctx, width, height);
-        if (progress < 1) {
-            animationFrameId = requestAnimationFrame(animateStep);
-        }
-        else { // Анімація завершена
-            isAnimating = false;
-            isPaused = false;
-            totalAnimatedTime = 0;
-            segmentStartTime = null;
-            drawnShapes.forEach(shape => {
-                if (shape.originalPoints) {
-                    shape.points = [...shape.originalPoints];
-                }
-            });
-            redrawCanvas(ctx, width, height);
-            animateBtn.disabled = false;
-            pauseResumeBtn.disabled = true;
-            pauseResumeBtn.textContent = "Pause Animation";
-        }
-    }
-    let totalAnimatedTime = 0; // Загальний час, який анімація вже програлася
-    let segmentStartTime = null; // Час початку поточного сегменту анімації
-    animateBtn.onclick = () => {
+    }; // --- Анімація ---
+    document.getElementById("animateBtn").onclick = () => {
         if (drawnShapes.length === 0) {
             showError("Please draw a shape first.");
             return;
         }
-        scaleX_anim = parseFloat(document.getElementById("animScaleX").value);
-        scaleY_anim = parseFloat(document.getElementById("animScaleY").value);
-        duration_anim = parseFloat(document.getElementById("animDuration").value);
-        mirrorVertexIndex_anim = parseInt(document.getElementById("mirrorVertex").value);
-        if (isNaN(scaleX_anim) || isNaN(scaleY_anim) || scaleX_anim <= 0 || scaleY_anim <= 0 || isNaN(duration_anim) || duration_anim <= 0) {
-            showError("Please enter valid animation parameters.");
+        // Отримуємо індекс вибраної фігури тільки якщо це початок нової анімації
+        if (!isPaused) {
+            const shapeSelector = document.getElementById("shapeSelector");
+            selectedShapeIndex = parseInt(shapeSelector.value);
+            // Якщо вибрано "Latest Shape" (-1), використовуємо останню фігуру
+            if (selectedShapeIndex === -1) {
+                selectedShapeIndex = drawnShapes.length - 1;
+            }
+            // Перевіряємо, чи індекс коректний
+            if (selectedShapeIndex < 0 || selectedShapeIndex >= drawnShapes.length) {
+                showError("Invalid shape selected.");
+                return;
+            }
+            // Використовуємо вибрану фігуру тільки для нової анімації
+            originalPoints = [...drawnShapes[selectedShapeIndex].points];
+        } // Перевірка параметрів для анімації
+        const duration = parseFloat(document.getElementById("animDuration").value);
+        const animationType = document.getElementById("animationType").value;
+        mirrorVertexIndex = parseInt(document.getElementById("mirrorVertex").value);
+        if (isNaN(duration) || duration <= 0) {
+            showError("Please enter valid animation duration.");
             return;
         }
-        isAnimating = true;
-        isPaused = false;
-        totalAnimatedTime = 0; // Починаємо анімацію з початку
-        segmentStartTime = null; // Буде встановлено в першому кадрі animateStep
+        // Якщо анімація не на паузі, почати з початку
+        if (!isPaused) {
+            isAnimating = true;
+            animationStartTime = null;
+            currentAnimationTime = 0;
+            pausedProgress = 0;
+            animationDuration = duration;
+        }
+        else {
+            // Якщо анімація на паузі, продовжити з поточного прогресу
+            isAnimating = true;
+            animationStartTime = null;
+            currentAnimationTime = pausedProgress * duration;
+            isPaused = false;
+        } // Вимикаємо кнопку "Start" і вмикаємо кнопку "Stop"
+        const animateBtn = document.getElementById("animateBtn");
+        const stopBtn = document.getElementById("stopAnimBtn");
         animateBtn.disabled = true;
-        pauseResumeBtn.disabled = false;
-        pauseResumeBtn.textContent = "Pause Animation";
-        drawnShapes.forEach(shape => {
-            shape.originalPoints = [...shape.points];
-        });
-        if (animationFrameId)
-            cancelAnimationFrame(animationFrameId); // На випадок швидких кліків
+        stopBtn.disabled = false;
+        const pivotVertex = originalPoints[mirrorVertexIndex]; // Функція для анімації
+        function animateStep(timestamp) {
+            if (!animationStartTime)
+                animationStartTime = timestamp;
+            currentAnimationTime = timestamp - animationStartTime + (pausedProgress * animationDuration);
+            const progress = Math.min(currentAnimationTime / animationDuration, 1);
+            // Отримуємо коефіцієнт масштабування (спільний для обох типів анімації)
+            const scaleFactor = parseFloat(document.getElementById("scaleFactor").value);
+            if (isNaN(scaleFactor) || scaleFactor <= 0) {
+                showError("Please enter valid scale factor.");
+                return;
+            }
+            // Підготовка результуючих точок
+            let transformedPoints = [];
+            if (animationType === "point") {
+                // Анімація відносно точки з масштабуванням
+                // Створюємо матрицю відображення з масштабуванням відносно точки
+                const mirrorMatrix = createMirrorScaleMatrixRelativeToPoint(pivotVertex[0], pivotVertex[1], scaleFactor);
+                // Обчислюємо відображені позиції
+                const mirroredPoints = originalPoints.map((point, index) => {
+                    if (index === mirrorVertexIndex) {
+                        // Опорна точка не змінюється
+                        return [...point];
+                    }
+                    else {
+                        return transformPoint(mirrorMatrix, point[0], point[1]);
+                    }
+                });
+                if (progress <= 0.5) {
+                    // Фаза 1: Лінійний рух до дзеркального відображення з масштабуванням (0-50%)
+                    const phaseProgress = progress / 0.5; // 0 -> 1
+                    transformedPoints = originalPoints.map((point, i) => {
+                        if (i === mirrorVertexIndex) {
+                            return [...point];
+                        }
+                        else {
+                            const x = point[0] + (mirroredPoints[i][0] - point[0]) * phaseProgress;
+                            const y = point[1] + (mirroredPoints[i][1] - point[1]) * phaseProgress;
+                            return [x, y];
+                        }
+                    });
+                }
+                else {
+                    // Фаза 2: Лінійний рух назад до оригінального стану (50-100%)
+                    const phaseProgress = (progress - 0.5) / 0.5; // 0 -> 1
+                    transformedPoints = originalPoints.map((point, i) => {
+                        if (i === mirrorVertexIndex) {
+                            return [...point];
+                        }
+                        else {
+                            const x = mirroredPoints[i][0] + (point[0] - mirroredPoints[i][0]) * phaseProgress;
+                            const y = mirroredPoints[i][1] + (point[1] - mirroredPoints[i][1]) * phaseProgress;
+                            return [x, y];
+                        }
+                    });
+                }
+                // Очищуємо функцію малювання лінії для цього типу анімації
+                drawReflectionLine = null;
+            }
+            else {
+                // Анімація відносно лінії з масштабуванням
+                // Для дзеркального відображення відносно лінії, перпендикулярної до діагоналі,
+                // нам потрібно знайти діагональ, що проходить через опорну вершину
+                // Знайдемо індекс вершини, яка знаходиться на діагоналі з опорною
+                const diagonalVertexIndex = (mirrorVertexIndex + 2) % 4; // Протилежна вершина
+                // Отримаємо координати вершини на діагоналі
+                const diagonalVertex = originalPoints[diagonalVertexIndex];
+                // Вектор уздовж діагоналі від опорної точки
+                const diagonalVector = [
+                    diagonalVertex[0] - pivotVertex[0],
+                    diagonalVertex[1] - pivotVertex[1]
+                ];
+                // Нормалізуємо вектор діагоналі
+                const diagonalLength = Math.sqrt(Math.pow(diagonalVector[0], 2) + Math.pow(diagonalVector[1], 2));
+                const normalizedDiagonal = [
+                    diagonalVector[0] / diagonalLength,
+                    diagonalVector[1] / diagonalLength
+                ];
+                // Вектор, перпендикулярний до діагоналі - це вісь для відображення
+                // Повертаємо вектор діагоналі на 90 градусів
+                const perpVector = [-normalizedDiagonal[1], normalizedDiagonal[0]];
+                // Створюємо матрицю відображення з масштабуванням відносно лінії, перпендикулярної до діагоналі
+                const mirrorMatrix = createMirrorScaleMatrixRelativeToLine(pivotVertex[0], pivotVertex[1], // Опорна точка
+                perpVector[0], perpVector[1], // Напрям перпендикуляра до діагоналі
+                scaleFactor // Коефіцієнт масштабування
+                );
+                // Для відображення червоної лінії через вершину, перпендикулярної до діагоналі
+                drawReflectionLine = function (ctx, width, height) {
+                    // Довжина лінії, можна підібрати за потребою
+                    const lineLength = diagonalLength * 1.5;
+                    // Від опорної точки відкладаємо вектор perpVector в обидві сторони
+                    const lineStart = [
+                        pivotVertex[0] - perpVector[0] * lineLength / 2,
+                        pivotVertex[1] - perpVector[1] * lineLength / 2
+                    ];
+                    const lineEnd = [
+                        pivotVertex[0] + perpVector[0] * lineLength / 2,
+                        pivotVertex[1] + perpVector[1] * lineLength / 2
+                    ];
+                    // Перетворюємо математичні координати у canvas
+                    const [startX, startY] = transform(lineStart[0], lineStart[1], width, height);
+                    const [endX, endY] = transform(lineEnd[0], lineEnd[1], width, height);
+                    ctx.save();
+                    ctx.strokeStyle = "red";
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(startX, startY);
+                    ctx.lineTo(endX, endY);
+                    ctx.stroke();
+                    ctx.restore();
+                };
+                // Обчислюємо дзеркально відображені позиції для кожної точки відносно лінії,
+                // перпендикулярної до діагоналі, використовуючи матричні перетворення з масштабуванням
+                const mirroredPoints = originalPoints.map((point, index) => {
+                    if (index === mirrorVertexIndex) {
+                        // Опорна точка не змінюється
+                        return [...point];
+                    }
+                    else {
+                        // Використовуємо матрицю відображення з масштабуванням для трансформації точки
+                        return transformPoint(mirrorMatrix, point[0], point[1]);
+                    }
+                });
+                if (progress <= 0.5) {
+                    // Фаза 1: Лінійний рух до дзеркального відображення з масштабуванням (0-50%)
+                    const phaseProgress = progress / 0.5; // 0 -> 1
+                    // Для кожної точки, лінійно інтерполюємо між оригінальною та дзеркальною з масштабуванням
+                    transformedPoints = originalPoints.map((point, i) => {
+                        if (i === mirrorVertexIndex) {
+                            // Опорна точка не змінюється
+                            return [...point];
+                        }
+                        else {
+                            const x = point[0] + (mirroredPoints[i][0] - point[0]) * phaseProgress;
+                            const y = point[1] + (mirroredPoints[i][1] - point[1]) * phaseProgress;
+                            return [x, y];
+                        }
+                    });
+                }
+                else {
+                    // Фаза 2: Лінійний рух назад до оригінального стану (50-100%)
+                    const phaseProgress = (progress - 0.5) / 0.5; // 0 -> 1
+                    // Для кожної точки, лінійно інтерполюємо від дзеркальної з масштабуванням до оригінальної
+                    transformedPoints = originalPoints.map((point, i) => {
+                        if (i === mirrorVertexIndex) {
+                            // Опорна точка не змінюється
+                            return [...point];
+                        }
+                        else {
+                            const x = mirroredPoints[i][0] + (point[0] - mirroredPoints[i][0]) * phaseProgress;
+                            const y = mirroredPoints[i][1] + (point[1] - mirroredPoints[i][1]) * phaseProgress;
+                            return [x, y];
+                        }
+                    });
+                }
+            }
+            drawnShapes[selectedShapeIndex].points = transformedPoints;
+            redrawCanvas(ctx, width, height);
+            if (progress < 1 && isAnimating) {
+                animationFrameId = requestAnimationFrame(animateStep);
+            }
+            else {
+                isAnimating = false;
+                isPaused = false; // Скидаємо паузу після завершення
+                pausedProgress = 0; // Скидаємо прогрес
+                animationFrameId = null;
+                drawReflectionLine = null; // Очищуємо функцію малювання лінії
+                // Переконуємося, що фігура точно повернулася в оригінальний стан
+                drawnShapes[selectedShapeIndex].points = [...originalPoints];
+                redrawCanvas(ctx, width, height);
+                const animateBtn = document.getElementById("animateBtn");
+                const stopBtn = document.getElementById("stopAnimBtn");
+                animateBtn.disabled = false;
+                stopBtn.disabled = true;
+                animateBtn.textContent = "Start Animation"; // Повертаємо оригінальний текст
+            }
+        }
         animationFrameId = requestAnimationFrame(animateStep);
-    };
-    pauseResumeBtn.onclick = () => {
-        if (isAnimating) { // Якщо анімація активна, ставимо на паузу
+    }; // Зупинка анімації
+    document.getElementById("stopAnimBtn").onclick = () => {
+        if (isAnimating) {
+            // Зупиняємо анімацію та зберігаємо поточний прогрес
             isAnimating = false;
             isPaused = true;
-            // Зберігаємо прогрес часу
-            // segmentStartTime має бути встановлений, якщо isAnimating було true
-            if (segmentStartTime) {
-                totalAnimatedTime += (performance.now() - segmentStartTime);
-            }
-            segmentStartTime = null; // Скидаємо для наступного resume
-            if (animationFrameId) {
+            pausedProgress = Math.min(currentAnimationTime / animationDuration, 1);
+            drawReflectionLine = null; // Очищуємо функцію малювання лінії
+            if (animationFrameId !== null) {
                 cancelAnimationFrame(animationFrameId);
                 animationFrameId = null;
             }
-            pauseResumeBtn.textContent = "Resume Animation";
-        }
-        else if (isPaused) { // Якщо на паузі, продовжуємо
-            isAnimating = true;
-            isPaused = false;
-            // segmentStartTime буде встановлено в animateStep, або тут:
-            segmentStartTime = performance.now();
-            pauseResumeBtn.textContent = "Pause Animation";
-            if (animationFrameId)
-                cancelAnimationFrame(animationFrameId);
-            animationFrameId = requestAnimationFrame(animateStep);
+            // НЕ повертаємо фігуру до початкового стану - залишаємо в поточному
+            // Повертаємо стан кнопок
+            const animateBtn = document.getElementById("animateBtn");
+            const stopBtn = document.getElementById("stopAnimBtn");
+            animateBtn.disabled = false;
+            stopBtn.disabled = true;
+            // Змінюємо текст кнопки Start на Continue якщо анімація не завершена
+            if (pausedProgress < 1) {
+                animateBtn.textContent = "Continue Animation";
+            }
         }
     };
     // --- Панорамування (зсув) ---
@@ -541,4 +792,212 @@ window.onload = () => {
         redrawCanvas(ctx, width, height); // Перемальовуємо все
     }, { passive: false });
     canvas.style.cursor = "grab";
+    // --- Обробник зміни типу анімації ---
+    const animationTypeSelect = document.getElementById("animationType");
+    const scaleGroup = document.getElementById("scaleGroup");
+    animationTypeSelect.addEventListener("change", () => {
+        const animationType = animationTypeSelect.value;
+        if (animationType === "point") {
+            scaleGroup.style.display = "block";
+        }
+        else {
+            scaleGroup.style.display = "none";
+        }
+    });
+    // Встановлюємо початковий стан
+    if (animationTypeSelect.value === "point") {
+        scaleGroup.style.display = "block";
+    }
+    else {
+        scaleGroup.style.display = "none";
+    }
+    // --- Обробник кнопки "Перемалювати" ---
+    const redrawBtn = document.getElementById("redrawBtn");
+    redrawBtn.addEventListener("click", () => {
+        // Перетворюємо всі фігури під поточний масштаб
+        transformShapesToCurrentScale();
+        // Перемальовуємо canvas
+        redrawCanvas(ctx, width, height);
+        console.log("Фігури перемальовано під поточний масштаб");
+    });
+    // --- Функції збереження ---
+    // Функція для збереження матриці у файл
+    function saveTransformationMatrix() {
+        if (drawnShapes.length === 0) {
+            showError("Please draw a shape first.");
+            return;
+        }
+        // Отримуємо параметри для створення матриці
+        const animationType = document.getElementById("animationType").value;
+        const mirrorVertexIndex = parseInt(document.getElementById("mirrorVertex").value);
+        const scaleFactor = parseFloat(document.getElementById("scaleFactor").value);
+        if (isNaN(scaleFactor) || scaleFactor <= 0) {
+            showError("Please enter valid scale factor.");
+            return;
+        }
+        // Отримуємо індекс вибраної фігури
+        const shapeSelector = document.getElementById("shapeSelector");
+        let selectedShapeIndex = parseInt(shapeSelector.value);
+        if (selectedShapeIndex === -1) {
+            selectedShapeIndex = drawnShapes.length - 1;
+        }
+        if (selectedShapeIndex < 0 || selectedShapeIndex >= drawnShapes.length) {
+            showError("Invalid shape selected.");
+            return;
+        }
+        const selectedShape = drawnShapes[selectedShapeIndex];
+        const pivotVertex = selectedShape.points[mirrorVertexIndex];
+        let transformationMatrix;
+        if (animationType === "point") {
+            // Створення матриці дзеркального відображення з масштабуванням відносно точки
+            transformationMatrix = createMirrorScaleMatrixRelativeToPoint(pivotVertex[0], pivotVertex[1], scaleFactor);
+        }
+        else {
+            // Створення матриці дзеркального відображення з масштабуванням відносно лінії
+            const diagonalVertexIndex = (mirrorVertexIndex + 2) % 4;
+            const diagonalVertex = selectedShape.points[diagonalVertexIndex];
+            const diagonalVector = [
+                diagonalVertex[0] - pivotVertex[0],
+                diagonalVertex[1] - pivotVertex[1]
+            ];
+            const diagonalLength = Math.sqrt(Math.pow(diagonalVector[0], 2) + Math.pow(diagonalVector[1], 2));
+            const normalizedDiagonal = [
+                diagonalVector[0] / diagonalLength,
+                diagonalVector[1] / diagonalLength
+            ];
+            const perpVector = [-normalizedDiagonal[1], normalizedDiagonal[0]];
+            transformationMatrix = createMirrorScaleMatrixRelativeToLine(pivotVertex[0], pivotVertex[1], perpVector[0], perpVector[1], scaleFactor);
+        }
+        // Формування текстового представлення матриці
+        const matrixText = formatMatrix(transformationMatrix, animationType, mirrorVertexIndex, scaleFactor, pivotVertex);
+        // Створення та завантаження файлу
+        const blob = new Blob([matrixText], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `transformation_matrix_${animationType}_vertex${mirrorVertexIndex}_scale${scaleFactor}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        console.log("Transformation matrix saved successfully");
+    }
+    // Функція для форматування матриці
+    function formatMatrix(matrix, animationType, vertexIndex, scaleFactor, pivotVertex) {
+        const timestamp = new Date().toLocaleString();
+        let matrixText = `Transformation Matrix Report\n`;
+        matrixText += `Generated: ${timestamp}\n`;
+        matrixText += `Animation Type: ${animationType === "point" ? "Mirror relative to point" : "Mirror relative to line"}\n`;
+        matrixText += `Pivot Vertex Index: ${vertexIndex}\n`;
+        matrixText += `Pivot Vertex Coordinates: (${pivotVertex[0].toFixed(3)}, ${pivotVertex[1].toFixed(3)})\n`;
+        matrixText += `Scale Factor: ${scaleFactor}\n\n`;
+        matrixText += `Transformation Matrix (3x3):\n`;
+        for (let i = 0; i < 3; i++) {
+            matrixText += `[${matrix[i][0].toFixed(6)}, ${matrix[i][1].toFixed(6)}, ${matrix[i][2].toFixed(6)}]\n`;
+        }
+        matrixText += `\nMatrix in mathematical notation:\n`;
+        matrixText += `┌                                          ┐\n`;
+        for (let i = 0; i < 3; i++) {
+            const val1 = matrix[i][0].toFixed(6);
+            const val2 = matrix[i][1].toFixed(6);
+            const val3 = matrix[i][2].toFixed(6);
+            const padding = '          ';
+            const pad1 = (padding + val1).slice(-10);
+            const pad2 = (padding + val2).slice(-10);
+            const pad3 = (padding + val3).slice(-10);
+            matrixText += `│ ${pad1} ${pad2} ${pad3} │\n`;
+        }
+        matrixText += `└                                          ┘\n`;
+        return matrixText;
+    }
+    // Функція для збереження зображення фігури
+    function saveShapeImage() {
+        if (drawnShapes.length === 0) {
+            showError("Please draw a shape first.");
+            return;
+        }
+        // Створюємо тимчасовий canvas для збереження зображення
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        const canvas = document.getElementById("plane");
+        // Встановлюємо розмір тимчасового canvas
+        tempCanvas.width = canvas.width;
+        tempCanvas.height = canvas.height;
+        // Отримуємо індекс вибраної фігури
+        const shapeSelector = document.getElementById("shapeSelector");
+        let selectedShapeIndex = parseInt(shapeSelector.value);
+        if (selectedShapeIndex === -1) {
+            selectedShapeIndex = drawnShapes.length - 1;
+        }
+        if (selectedShapeIndex < 0 || selectedShapeIndex >= drawnShapes.length) {
+            showError("Invalid shape selected.");
+            return;
+        }
+        // Малюємо координатну площину
+        drawPlane(tempCtx, tempCanvas.width, tempCanvas.height);
+        // Малюємо тільки вибрану фігуру
+        const selectedShape = drawnShapes[selectedShapeIndex];
+        drawSquare(tempCtx, selectedShape.points, selectedShape.fillColor, tempCanvas.width, tempCanvas.height, selectedShape.shapeScale);
+        // Додаємо інформацію про фігуру на зображення
+        addShapeInfoToCanvas(tempCtx, selectedShape, selectedShapeIndex, tempCanvas.width, tempCanvas.height);
+        // Конвертуємо canvas в зображення та завантажуємо
+        tempCanvas.toBlob((blob) => {
+            if (blob) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `shape_${selectedShapeIndex + 1}_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.png`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                console.log("Shape image saved successfully");
+            }
+        }, 'image/png');
+    }
+    // Функція для додавання інформації про фігуру на canvas
+    function addShapeInfoToCanvas(ctx, shape, shapeIndex, width, height) {
+        var _a;
+        ctx.save();
+        // Налаштування тексту
+        ctx.font = '14px Arial';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.lineWidth = 3;
+        // Інформація про фігуру
+        const info = [
+            `Shape ${shapeIndex + 1}`,
+            `Fill Color: ${shape.fillColor}`,
+            `Scale: ${((_a = shape.shapeScale) === null || _a === void 0 ? void 0 : _a.toFixed(2)) || 'Default'}`,
+            `Vertices: ${shape.points.length}`,
+            `Points: ${shape.points.map(p => `(${p[0].toFixed(2)}, ${p[1].toFixed(2)})`).join(', ')}`
+        ];
+        // Позиція для тексту (в правому верхньому куті)
+        const startX = width - 10;
+        const startY = 20;
+        // Малюємо кожен рядок інформації
+        info.forEach((line, index) => {
+            const y = startY + (index * 20);
+            const textWidth = ctx.measureText(line).width;
+            const x = startX - textWidth;
+            // Обводка для кращої читабельності
+            ctx.strokeText(line, x, y);
+            ctx.fillText(line, x, y);
+        });
+        // Додаємо часову мітку
+        const timestamp = new Date().toLocaleString();
+        const timestampY = startY + (info.length * 20) + 10;
+        const timestampText = `Generated: ${timestamp}`;
+        const timestampWidth = ctx.measureText(timestampText).width;
+        const timestampX = startX - timestampWidth;
+        ctx.font = '12px Arial';
+        ctx.strokeText(timestampText, timestampX, timestampY);
+        ctx.fillText(timestampText, timestampX, timestampY);
+        ctx.restore();
+    }
+    // --- Обробники кнопок збереження ---
+    const saveMatrixBtn = document.getElementById("saveMatrixBtn");
+    saveMatrixBtn.addEventListener("click", saveTransformationMatrix);
+    const saveImageBtn = document.getElementById("saveImageBtn");
+    saveImageBtn.addEventListener("click", saveShapeImage);
 };

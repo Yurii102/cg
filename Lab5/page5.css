@@ -5,9 +5,8 @@
 }
 
 body {
-    background-color: #eceff1; /* Light Grayish Blue */
+    background-color: #f0f2f5;
     font-family: 'Segoe UI', Arial, sans-serif;
-    color: #37474f; /* Dark Slate Gray */
 }
 
 main {
@@ -15,66 +14,167 @@ main {
     flex-direction: column;
     align-items: center;
     padding: 20px;
-    max-width: 1400px; /* Increased max-width for side-by-side layout */
+    max-width: 1200px;
     margin: 0 auto;
 }
 
 h1 {
-    color: #00695c; /* Dark Teal */
+    color: #2c3e50;
     margin-bottom: 20px;
     text-align: center;
 }
 
-.content-wrapper {
-    display: flex;
-    width: 100%;
-    gap: 20px;
-}
-
-.left-panel {
-    flex: 3; /* Takes more space */
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-.right-panel {
-    flex: 1; /* Takes less space */
-    display: flex;
-    flex-direction: column;
-}
-
 .controls-container {
-    background: #ffffff; /* White */
+    background: #fff;
     padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
     width: 100%;
-    /* margin-bottom removed as gap is handled by flex container */
-}
-
-.drawing-controls { /* Specific class for drawing controls if needed */
+    margin-bottom: 20px;
     display: flex;
     flex-wrap: wrap;
-    gap: 20px;
+    gap: 20px; /* This gap is between .points-container and .color-draw-container */
     justify-content: space-between;
 }
 
 /* Animation controls specific styles */
 .animation-controls {
-    /* background, padding, etc. inherited from .controls-container */
     display: flex;
-    flex-direction: column; /* Stack animation params and buttons vertically */
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Main content area with canvas and animation panel */
+.main-content-area {
+    display: flex;
     gap: 20px;
+    width: 100%;
+    align-items: flex-start;
+    margin-top: 5px;
+}
+
+.canvas-container {
+    flex: 1;
+    position: relative;
+}
+
+.animation-panel {
+    width: 280px;
+    background: #fff;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    position: sticky;
+    top: 20px;
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.animation-panel h3 {
+    color: #2c3e50;
+    margin-bottom: 20px;
+    text-align: center;
+    font-size: 20px;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 10px;
+}
+
+.animation-section {
+    margin-bottom: 25px;
+}
+
+.animation-section h4 {
+    color: #34495e;
+    margin-bottom: 15px;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.param-group {
+    margin-bottom: 15px;
+}
+
+.param-group label {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    color: #555;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.param-group input[type="number"],
+.param-group select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    background: #fff;
+    transition: all 0.2s ease;
+}
+
+.param-group input[type="number"]:focus,
+.param-group select:focus {
+    border-color: #3498db;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(52,152,219,0.2);
+}
+
+.animation-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.animation-buttons button {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 6px;
+    font-size: 15px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+#animateBtn {
+    background: linear-gradient(to right, #3498db, #2980b9);
+    color: #fff;
+}
+
+#animateBtn:hover:not(:disabled) {
+    background: linear-gradient(to right, #2980b9, #3498db);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+#stopAnimBtn {
+    background: linear-gradient(to right, #e74c3c, #c0392b);
+    color: #fff;
+}
+
+#stopAnimBtn:hover:not(:disabled) {
+    background: linear-gradient(to right, #c0392b, #e74c3c);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+#animateBtn:disabled, #stopAnimBtn:disabled {
+    background: #cccccc;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
 }
 
 .scale-controls {
-    flex: 1; /* Allow it to take available space if needed */
+    flex: 1;
 }
 
 .scale-controls h3 {
     margin-bottom: 15px;
-    color: #00796b; /* Teal */
+    color: #2c3e50;
     font-size: 18px;
 }
 
@@ -85,17 +185,10 @@ h1 {
     margin-bottom: 10px;
 }
 
-.animation-buttons {
-    display: flex;
-    flex-direction: column; /* Stack buttons if needed, or row */
-    gap: 10px;
-    align-items: stretch; /* Make buttons full width of their container */
-}
-
-#animateBtn, #stopAnimBtn, button#drawBtn {
+#animateBtn, #stopAnimBtn, #redrawBtn {
     padding: 10px 20px;
-    background: linear-gradient(to right, #00796b, #00897b); /* Teal gradient */
-    color: #ffffff;
+    background: linear-gradient(to right, #3498db, #2980b9);
+    color: #fff;
     border: none;
     border-radius: 6px;
     font-size: 15px;
@@ -103,62 +196,62 @@ h1 {
     transition: all 0.2s ease;
     font-weight: bold;
     min-width: 160px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
 }
 
-#animateBtn:hover, #stopAnimBtn:hover, button#drawBtn:hover {
-    background: linear-gradient(to right, #00695c, #00796b); /* Darker Teal gradient */
+#redrawBtn {
+    background: linear-gradient(to right, #e67e22, #d35400);
+}
+
+#animateBtn:hover, #stopAnimBtn:hover, #redrawBtn:hover {
+    background: linear-gradient(to right, #2980b9, #3498db);
     transform: translateY(-2px);
-    box-shadow: 0 4px 10px rgba(0, 77, 64, 0.2);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
 #animateBtn:disabled, #stopAnimBtn:disabled {
-    background: #b0bec5; /* Blue Grey Lighten-3 */
+    background: #cccccc;
     cursor: not-allowed;
     transform: none;
     box-shadow: none;
-    color: #78909c;
 }
 
 #stopAnimBtn {
-    background: linear-gradient(to right, #d32f2f, #e53935); /* Red gradient */
+    background: linear-gradient(to right, #e74c3c, #c0392b);
 }
 
 #stopAnimBtn:hover {
-    background: linear-gradient(to right, #c62828, #d32f2f); /* Darker Red gradient */
+    background: linear-gradient(to right, #c0392b, #e74c3c);
 }
 
 select {
     padding: 8px;
-    border: 1px solid #b0bec5; /* Blue Grey Lighten-3 */
+    border: 1px solid #ddd;
     border-radius: 4px;
     font-size: 14px;
     background: #fff;
     min-width: 120px;
     cursor: pointer;
-    color: #37474f;
 }
 
 select:focus {
-    border-color: #00796b; /* Teal */
+    border-color: #3498db;
     outline: none;
-    box-shadow: 0 0 0 2px rgba(0, 121, 107, 0.2);
+    box-shadow: 0 0 0 2px rgba(52,152,219,0.2);
 }
 
 .points-container {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px; 
-    justify-content: flex-start; 
+    gap: 10px; /* Reduced gap between point groups */
+    justify-content: flex-start; /* Align point groups to the start */
     flex: 1;
 }
 
 .point-group {
-    background: #e0f2f1; /* Teal Lighten-5 */
+    background: #f9f9f9;
     padding: 15px;
     border-radius: 8px;
-    border-left: 4px solid #00796b; /* Teal */
+    border-left: 4px solid #3498db;
     min-width: 180px;
     transition: all 0.3s ease;
 }
@@ -170,7 +263,7 @@ select:focus {
 
 .point-group h3 {
     margin-bottom: 10px;
-    color: #00796b; /* Teal */
+    color: #3498db;
     font-size: 16px;
 }
 
@@ -189,9 +282,16 @@ select:focus {
     align-items: center;
 }
 
+.angle-input {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+}
+
 label {
     margin: 5px 0;
-    color: #455a64; /* Blue Grey Darken-1 */
+    color: #555;
     font-size: 14px;
     display: flex;
     align-items: center;
@@ -201,46 +301,65 @@ label {
 input[type="number"] {
     width: 80px;
     padding: 8px;
-    border: 1px solid #cfd8dc; /* Blue Grey Lighten-4 */
+    border: 1px solid #ddd;
     border-radius: 4px;
     font-size: 14px;
     background: #fff;
     transition: all 0.2s ease;
-    color: #37474f;
 }
 
 input[type="color"] {
     width: 60px;
     height: 40px;
-    border: 1px solid #cfd8dc;
+    border: none;
     border-radius: 4px;
     background: transparent;
     cursor: pointer;
-    padding: 2px; /* Small padding for the color picker itself */
+    padding: 0;
 }
 
 input[type="number"]:focus {
-    border-color: #00796b; /* Teal */
+    border-color: #3498db;
     outline: none;
-    box-shadow: 0 0 0 2px rgba(0, 121, 107, 0.2);
+    box-shadow: 0 0 0 2px rgba(52,152,219,0.2);
 }
 
 button#drawBtn {
-    align-self: center; /* Already set by parent .color-draw-container */
-    margin-top: 10px; /* Keep or adjust as needed */
+    padding: 12px 24px;
+    background: linear-gradient(to right, #3498db, #2980b9);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    min-width: 160px;
+    align-self: center;
+    margin-top: 10px;
+}
+
+button#drawBtn:hover {
+    background: linear-gradient(to right, #2980b9, #3498db);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+button#drawBtn:active {
+    transform: translateY(0);
 }
 
 #error {
-    min-height: 24px;
-    color: #c62828; /* Red Darken-3 */
+    min-height: 0;
+    color: #e74c3c;
     font-weight: 500;
-    /* margin-bottom removed, handled by flex gap in .left-panel */
+    margin-bottom: 10px;
     text-align: center;
-    background-color: #ffcdd2; /* Pink Lighten-4 */
-    padding: 8px 16px;
-    border-radius: 4px;
+    padding: 0;
     width: 100%;
-    /* max-width: 800px; */ /* Let it take full width of left panel */
+    max-width: 800px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -248,56 +367,121 @@ button#drawBtn {
 
 .canvas-container {
     position: relative;
-    /* margin-top removed, handled by flex gap in .left-panel */
-    width: 100%; /* Ensure it takes full width of its column */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
 canvas#plane {
-    border: 2px solid #00796b; /* Teal */
+    border: 2px solid #3498db;
     background: #fff;
     border-radius: 8px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.07);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     cursor: grab;
     transition: box-shadow 0.3s ease;
-    display: block; /* To remove extra space below canvas if any */
-    width: 100%;    /* Make canvas responsive within its container */
-    height: auto;   /* Adjust height automatically or set fixed */
 }
 
 canvas#plane:active {
     cursor: grabbing;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
 
 .canvas-instructions {
     display: flex;
     justify-content: space-around;
     width: 100%;
-    /* margin-top removed, handled by flex gap in .left-panel */
+    margin-top: 10px;
+    gap: 20px;
 }
 
 .canvas-instructions p {
-    color: #546e7a; /* Blue Grey */
+    color: #7f8c8d;
     font-size: 14px;
     font-style: italic;
+    text-align: center;
 }
 
-@media (max-width: 1024px) { /* Adjust breakpoint for when layout stacks */
-    .content-wrapper {
-        flex-direction: column;
-    }
-    .left-panel, .right-panel {
-        flex: none; /* Reset flex grow */
-        width: 100%;
-    }
+/* Save section styles */
+.save-section {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.save-section h4 {
+    color: #2c3e50;
+    margin-bottom: 15px;
+    font-size: 16px;
+}
+
+.save-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.save-buttons button {
+    background: linear-gradient(145deg, #27ae60, #2ecc71);
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.save-buttons button:hover {
+    background: linear-gradient(145deg, #2ecc71, #27ae60);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.save-buttons button:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 @media (max-width: 768px) {
     .points-container {
         flex-direction: column;
     }
-    .drawing-controls {
+    
+    .main-content-area {
         flex-direction: column;
     }
-    /* canvas#plane width 100% and height auto is already set */
+    
+    .animation-panel {
+        width: 100%;
+        position: static;
+        margin-top: 20px;
+        order: 2;
+    }
+    
+    .canvas-container {
+        order: 1;
+    }
+    
+    canvas#plane {
+        width: 100%;
+        height: auto;
+        max-width: 100%;
+    }
+}
+
+@media (max-width: 1200px) {
+    .main-content-area {
+        gap: 15px;
+    }
+    
+    .animation-panel {
+        width: 250px;
+    }
+    
+    canvas#plane {
+        width: 100%;
+        max-width: 750px;
+        height: auto;
+    }
 }
